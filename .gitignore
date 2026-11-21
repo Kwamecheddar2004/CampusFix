@@ -1,0 +1,39 @@
+# Compiled and Vendor Dependencies
+/vendor/
+/node_modules/
+
+# Environment and sensitive configuration
+.env
+.env.local
+.env.*.local
+app/config/secrets.php
+
+# Operating System files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# IDE and Editor files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*.swo
+
+# Uploaded User Files (keep directories, ignore user uploads)
+assets/uploads/tickets/*
+!assets/uploads/tickets/.gitkeep
+assets/uploads/avatars/*
+!assets/uploads/avatars/.gitkeep
+
+# Logs and Cache
+*.log
+logs/
+cache/
+tmp/
