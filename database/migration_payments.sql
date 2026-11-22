@@ -49,7 +49,8 @@ INSERT INTO `system_settings` (`setting_key`, `setting_value`, `setting_group`, 
 ('paystack_secret_key', 'sk_test_sample_campusfix_secret', 'payment', 'Paystack secret test key', 0),
 ('currency_code', 'GHS', 'payment', 'Currency ISO code', 1),
 ('currency_symbol', 'GH₵', 'payment', 'Currency display symbol', 1),
-('billing_enabled', '1', 'payment', 'Global toggle to enable maintenance surcharges and payments', 1)
+('billing_enabled', '1', 'payment', 'Global toggle to enable maintenance surcharges and payments', 1),
+('paystack_payment_link', 'https://paystack.shop/pay/0fwhj--t6n', 'payment', 'Direct Paystack payment storefront URL', 1)
 ON DUPLICATE KEY UPDATE `updated_at` = NOW();
 
 -- 4. Seed Sample Demonstration Data

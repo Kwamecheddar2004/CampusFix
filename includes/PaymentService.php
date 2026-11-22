@@ -40,6 +40,11 @@ class PaymentService
         return self::getSetting('currency_code', 'GHS');
     }
 
+    public static function getPaymentPageUrl(): string
+    {
+        return self::getSetting('paystack_payment_link', 'https://paystack.shop/pay/0fwhj--t6n');
+    }
+
     /**
      * Attach a billable maintenance surcharge to a ticket (Admin / Tech)
      */
@@ -151,14 +156,15 @@ class PaymentService
         }
 
         return [
-            'success'        => true,
-            'reference'      => $reference,
-            'receipt_number' => $receiptNumber,
-            'amount_pesewas' => (int) round($amount * 100),
-            'amount_decimal' => $amount,
-            'currency'       => $currency,
-            'public_key'     => self::getPublicKey(),
-            'is_sandbox'     => self::isSandbox()
+            'success'          => true,
+            'reference'        => $reference,
+            'receipt_number'   => $receiptNumber,
+            'amount_pesewas'   => (int) round($amount * 100),
+            'amount_decimal'   => $amount,
+            'currency'         => $currency,
+            'public_key'       => self::getPublicKey(),
+            'payment_page_url' => self::getPaymentPageUrl(),
+            'is_sandbox'       => self::isSandbox()
         ];
     }
 

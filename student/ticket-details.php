@@ -24,6 +24,7 @@ if ($ticketId <= 0) {
 $pdo = get_db_connection();
 $payment = PaymentService::getPaymentByTicket($ticketId);
 $currency = PaymentService::getCurrencySymbol();
+$paystackPageUrl = PaymentService::getPaymentPageUrl();
 
 // 1. Fetch Ticket Record with Relations
 $stmt = $pdo->prepare("
@@ -591,20 +592,54 @@ $currentStep = $steps[$ticket['status']] ?? 1;
                 <!-- Nav Tabs for Payment Methods -->
                 <ul class="nav nav-pills nav-fill mb-3" id="paymentMethodTabs" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active fw-semibold small py-2" id="momo-tab" data-bs-toggle="pill" data-bs-target="#momoPane" type="button" role="tab">
-                            <i class="bi bi-phone me-1"></i> Mobile Money
+                        <button class="nav-link active fw-semibold small py-2" id="paystack-live-tab" data-bs-toggle="pill" data-bs-target="#paystackLivePane" type="button" role="tab">
+                            <i class="bi bi-box-arrow-up-right me-1 text-primary"></i> Paystack Page
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-semibold small py-2" id="momo-tab" data-bs-toggle="pill" data-bs-target="#momoPane" type="button" role="tab">
+                            <i class="bi bi-phone me-1"></i> MoMo Simulator
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link fw-semibold small py-2" id="card-tab" data-bs-toggle="pill" data-bs-target="#cardPane" type="button" role="tab">
-                            <i class="bi bi-credit-card me-1"></i> Debit / Credit Card
+                            <i class="bi bi-credit-card me-1"></i> Card Sandbox
                         </button>
                     </li>
                 </ul>
 
                 <div class="tab-content" id="paymentMethodContent">
-                    <!-- Tab 1: Mobile Money -->
-                    <div class="tab-pane fade show active" id="momoPane" role="tabpanel">
+                    <!-- Tab 1: Live Paystack Payment Page -->
+                    <div class="tab-pane fade show active" id="paystackLivePane" role="tabpanel">
+                        <div class="p-3 bg-light rounded-3 border mb-3 text-center">
+                            <span class="badge bg-primary text-uppercase px-2 py-1 mb-2">Official Paystack Portal</span>
+                            <h6 class="fw-bold text-dark mb-1">Pay on Official CampusFix Storefront</h6>
+                            <p class="text-secondary small mb-3">
+                                Click the link below to open the official Paystack payment page in a new window to pay with live Mobile Money or Card:
+                            </p>
+                            <a href="<?= htmlspecialchars($paystackPageUrl) ?>" target="_blank" class="btn btn-primary w-100 fw-bold py-2 shadow-sm d-flex align-items-center justify-content-center gap-2 mb-2">
+                                <i class="bi bi-box-arrow-up-right"></i> Open Paystack Payment Page
+                            </a>
+                            <small class="text-muted d-block font-monospace" style="font-size: 0.72rem;">
+                                <?= htmlspecialchars($paystackPageUrl) ?>
+                            </small>
+                        </div>
+
+                        <div class="p-3 bg-white rounded-3 border">
+                            <label class="form-label small fw-semibold text-secondary mb-1">
+                                <i class="bi bi-check2-circle text-success me-1"></i> Confirm & Issue Voucher
+                            </label>
+                            <p class="text-muted small mb-3" style="font-size: 0.78rem;">
+                                Once you have completed payment on the Paystack link above, click below to confirm your transaction and generate your official printable receipt voucher.
+                            </p>
+                            <button type="button" class="btn btn-success w-100 fw-bold py-2 shadow-sm" id="btnConfirmPaystack" onclick="executeSandboxPayment('paystack_live')">
+                                <i class="bi bi-receipt me-1"></i> I Have Paid on Paystack — Issue Receipt
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tab 2: Mobile Money -->
+                    <div class="tab-pane fade" id="momoPane" role="tabpanel">
                         <div class="mb-3">
                             <label class="form-label small fw-semibold text-secondary">Select Carrier / Network</label>
                             <div class="row g-2">
@@ -637,7 +672,7 @@ $currentStep = $steps[$ticket['status']] ?? 1;
                         </button>
                     </div>
 
-                    <!-- Tab 2: Test Card -->
+                    <!-- Tab 3: Test Card -->
                     <div class="tab-pane fade" id="cardPane" role="tabpanel">
                         <div class="mb-3">
                             <label class="form-label small fw-semibold text-secondary">Card Number (Sandbox Test Card)</label>
@@ -698,8 +733,14 @@ $currentStep = $steps[$ticket['status']] ?? 1;
 <script>
 async function executeSandboxPayment(type) {
     const ticketId = <?= $ticketId ?>;
-    const momoNet = document.querySelector('input[name="momo_network"]:checked')?.value || 'MTN MoMo';
-    const channel = (type === 'momo') ? momoNet : 'Visa/Mastercard';
+    let channel;
+    if (type === 'paystack_live') {
+        channel = 'Paystack Online (paystack.shop)';
+    } else if (type === 'momo') {
+        channel = document.querySelector('input[name="momo_network"]:checked')?.value || 'MTN MoMo';
+    } else {
+        channel = 'Visa/Mastercard';
+    }
 
     // Show Processing State
     document.getElementById('paymentMethodTabs').classList.add('d-none');
@@ -724,9 +765,14 @@ async function executeSandboxPayment(type) {
 
         const paymentRef = initData.data.reference;
 
-        // Step 2: Simulate USSD PIN / Card Authorization delay (1.2 seconds for realistic UI experience)
-        document.getElementById('procTitle').innerText = 'Simulating ' + channel + ' Authorization...';
-        document.getElementById('procSubtitle').innerText = 'Authorizing reference ' + paymentRef + '...';
+        // Step 2: Show confirmation status
+        if (type === 'paystack_live') {
+            document.getElementById('procTitle').innerText = 'Verifying Paystack Surcharge...';
+            document.getElementById('procSubtitle').innerText = 'Validating Paystack transaction & issuing official voucher...';
+        } else {
+            document.getElementById('procTitle').innerText = 'Simulating ' + channel + ' Authorization...';
+            document.getElementById('procSubtitle').innerText = 'Authorizing reference ' + paymentRef + '...';
+        }
 
         await new Promise(r => setTimeout(r, 1200));
 

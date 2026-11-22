@@ -44,12 +44,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'sms_provider'         => trim($_POST['sms_provider'] ?? 'hubtel'),
             'sms_api_key'          => trim($_POST['sms_api_key'] ?? ''),
             'sms_sender_id'        => trim($_POST['sms_sender_id'] ?? 'CampusFix'),
-            'payment_gateway'      => trim($_POST['payment_gateway'] ?? 'paystack'),
-            'payment_sandbox_mode' => isset($_POST['payment_sandbox_mode']) ? '1' : '0',
-            'paystack_public_key'  => trim($_POST['paystack_public_key'] ?? ''),
-            'paystack_secret_key'  => trim($_POST['paystack_secret_key'] ?? ''),
-            'currency_symbol'      => trim($_POST['currency_symbol'] ?? 'GH₵'),
-            'currency_code'        => trim($_POST['currency_code'] ?? 'GHS')
+            'payment_gateway'       => trim($_POST['payment_gateway'] ?? 'paystack'),
+            'paystack_payment_link' => trim($_POST['paystack_payment_link'] ?? 'https://paystack.shop/pay/0fwhj--t6n'),
+            'payment_sandbox_mode'  => isset($_POST['payment_sandbox_mode']) ? '1' : '0',
+            'paystack_public_key'   => trim($_POST['paystack_public_key'] ?? ''),
+            'paystack_secret_key'   => trim($_POST['paystack_secret_key'] ?? ''),
+            'currency_symbol'       => trim($_POST['currency_symbol'] ?? 'GH₵'),
+            'currency_code'         => trim($_POST['currency_code'] ?? 'GHS')
         ];
 
         $upStmt = $pdo->prepare("UPDATE system_settings SET setting_value = ?, updated_at = NOW() WHERE setting_key = ?");
@@ -251,6 +252,20 @@ include_once INCLUDES_PATH . 'sidebar.php';
                                 <label class="form-label small fw-semibold text-secondary">Paystack Secret Test Key</label>
                                 <input type="password" name="paystack_secret_key" class="form-control" value="<?= htmlspecialchars(get_system_setting('paystack_secret_key', '')) ?>" placeholder="sk_test_...">
                             </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-secondary">Paystack Payment Page URL (Storefront / Link)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-link-45deg"></i></span>
+                                <input type="url" name="paystack_payment_link" class="form-control" value="<?= htmlspecialchars(get_system_setting('paystack_payment_link', 'https://paystack.shop/pay/0fwhj--t6n')) ?>" placeholder="https://paystack.shop/pay/...">
+                                <a href="<?= htmlspecialchars(get_system_setting('paystack_payment_link', 'https://paystack.shop/pay/0fwhj--t6n')) ?>" target="_blank" class="btn btn-outline-primary btn-sm d-flex align-items-center">
+                                    <i class="bi bi-box-arrow-up-right me-1"></i> Visit Paystack Page
+                                </a>
+                            </div>
+                            <small class="text-muted" style="font-size: 0.75rem;">
+                                Your active Paystack payment page link where students can settle surcharges using live mobile money or cards.
+                            </small>
                         </div>
 
                         <div class="mb-4 p-3 bg-light rounded-3 border">
