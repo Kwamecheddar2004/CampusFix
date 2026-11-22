@@ -12,6 +12,7 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/UploadService.php';
 require_once __DIR__ . '/../includes/PHPMailerLite.php';
 require_once __DIR__ . '/../includes/SmsService.php';
+require_once __DIR__ . '/../includes/PaymentService.php';
 
 class CampusFixTestRunner
 {
@@ -129,6 +130,15 @@ class CampusFixTestRunner
             'TC-11: SLA Target Turnaround Hours Definition',
             SLA_URGENT_HOURS === 4 && SLA_HIGH_HOURS === 12 && SLA_MEDIUM_HOURS === 24 && SLA_LOW_HOURS === 72,
             'SLA hours constants do not match project specification.'
+        );
+
+        // Test 12: External Payment Gateway (Paystack Sandbox & Currency)
+        $isSandbox = PaymentService::isSandbox();
+        $currencySymbol = PaymentService::getCurrencySymbol();
+        $this->assert(
+            'TC-12: External Payment Gateway (Paystack Sandbox & Currency)',
+            $isSandbox === true && in_array($currencySymbol, ['GH₵', 'GHS', '$']),
+            'Payment service failed to load sandbox mode or currency symbol.'
         );
     }
 

@@ -207,6 +207,7 @@ No specialized hardware required. Compatible with standard cameras/mobile lenses
 
 ### 4.3 Software Interfaces
 - **Database Engine:** MySQL 8.0+ / MariaDB 10.4 via PDO.
+- **Payment Sandbox Gateway:** REST API & JavaScript Inline Sandbox integration (Paystack / Mobile Money) for billable damage repairs, material replacements, and printable electronic vouchers.
 - **Email Gateway:** SMTP via PHPMailer (Gmail, Mailtrap, SendGrid, or local SMTP).
 - **SMS Gateway:** REST API integration (Hubtel, Arkesel, Twilio, or native Mock Gateway).
 

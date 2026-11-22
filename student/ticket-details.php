@@ -8,6 +8,7 @@ require_once __DIR__ . '/../config/app.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/auth_guard.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/PaymentService.php';
 
 require_login();
 
@@ -21,6 +22,8 @@ if ($ticketId <= 0) {
 }
 
 $pdo = get_db_connection();
+$payment = PaymentService::getPaymentByTicket($ticketId);
+$currency = PaymentService::getCurrencySymbol();
 
 // 1. Fetch Ticket Record with Relations
 $stmt = $pdo->prepare("
@@ -244,6 +247,55 @@ $currentStep = $steps[$ticket['status']] ?? 1;
                 </div>
             </div>
         </div>
+
+        <?php if (!empty($ticket['payment_status']) && $ticket['payment_status'] !== 'not_required'): ?>
+            <!-- Maintenance Billing & Payment Surcharge Banner -->
+            <div class="cf-card mb-4 border-start border-4 <?= ($ticket['payment_status'] === 'paid') ? 'border-success' : (($ticket['payment_status'] === 'pending') ? 'border-warning' : 'border-secondary') ?> shadow-sm">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="p-3 rounded-circle <?= ($ticket['payment_status'] === 'paid') ? 'bg-success-subtle text-success' : (($ticket['payment_status'] === 'pending') ? 'bg-warning-subtle text-warning' : 'bg-light text-muted') ?> fs-3">
+                            <i class="bi <?= ($ticket['payment_status'] === 'paid') ? 'bi-patch-check-fill' : (($ticket['payment_status'] === 'pending') ? 'bi-credit-card-2-front-fill' : 'bi-slash-circle') ?>"></i>
+                        </div>
+                        <div>
+                            <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
+                                <h6 class="fw-bold mb-0 text-dark">
+                                    <?= ($ticket['payment_status'] === 'paid') ? 'Maintenance Surcharge Settled' : (($ticket['payment_status'] === 'pending') ? 'Action Required: Maintenance Surcharge Payment' : 'Maintenance Surcharge Waived') ?>
+                                </h6>
+                                <span class="badge <?= ($ticket['payment_status'] === 'paid') ? 'bg-success' : (($ticket['payment_status'] === 'pending') ? 'bg-warning text-dark' : 'bg-secondary') ?> text-uppercase small">
+                                    <?= ucfirst($ticket['payment_status']) ?>
+                                </span>
+                                <span class="badge bg-primary-subtle text-primary border border-primary small">
+                                    <i class="bi bi-shield-check me-1"></i> Paystack Sandbox
+                                </span>
+                            </div>
+                            <div class="text-secondary small">
+                                <strong>Amount:</strong> <span class="fw-bold text-dark fs-6"><?= $currency ?> <?= number_format($ticket['billing_amount'], 2) ?></span>
+                                <?php if (!empty($ticket['billing_description'])): ?>
+                                    &bull; <span><?= htmlspecialchars($ticket['billing_description']) ?></span>
+                                <?php endif; ?>
+                            </div>
+                            <?php if ($ticket['payment_status'] === 'paid' && $payment): ?>
+                                <div class="text-muted small mt-1">
+                                    Settled via <strong><?= htmlspecialchars($payment['payment_channel'] ?: 'Mobile Money') ?></strong> on <?= date('M j, Y g:i A', strtotime($payment['paid_at'] ?: $payment['created_at'])) ?> &bull; Receipt: <code><?= htmlspecialchars($payment['receipt_number']) ?></code>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <?php if ($ticket['payment_status'] === 'pending'): ?>
+                            <button type="button" class="btn btn-warning fw-bold px-3 py-2 shadow-sm d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#paymentModal">
+                                <i class="bi bi-wallet2"></i> Pay <?= $currency ?> <?= number_format($ticket['billing_amount'], 2) ?> Now
+                            </button>
+                        <?php elseif ($ticket['payment_status'] === 'paid' && $payment): ?>
+                            <a href="<?= BASE_URL ?>student/receipt.php?ref=<?= urlencode($payment['receipt_number']) ?>" target="_blank" class="btn btn-outline-success btn-sm fw-semibold shadow-sm">
+                                <i class="bi bi-printer me-1"></i> View Official Receipt
+                            </a>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
 
         <div class="row g-4">
             <!-- Left Column: Details, Photos & Comments -->
@@ -500,6 +552,219 @@ $currentStep = $steps[$ticket['status']] ?? 1;
         </div>
     </div>
 </div>
+
+<!-- Modal C: Paystack Payment Sandbox Gateway -->
+<div class="modal fade" id="paymentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-dark text-white">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-primary px-2 py-1 small">PAYSTACK</span>
+                    <h5 class="modal-title fw-bold fs-6 mb-0">Secure Maintenance Surcharge Checkout</h5>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body p-4" id="paymentModalContent">
+                <!-- Surcharge Summary Box -->
+                <div class="p-3 bg-light rounded-3 border mb-4 text-center">
+                    <small class="text-muted text-uppercase fw-semibold" style="letter-spacing: 0.5px;">Amount Payable</small>
+                    <div class="fs-2 fw-bold text-dark my-1">
+                        <?= $currency ?> <?= number_format($ticket['billing_amount'], 2) ?>
+                    </div>
+                    <div class="badge bg-warning-subtle text-warning border border-warning small">
+                        <i class="bi bi-tag-fill me-1"></i> <?= htmlspecialchars($ticket['billing_description'] ?: 'Repair Material Surcharge') ?>
+                    </div>
+                    <div class="mt-2 text-muted small">
+                        Ticket ID: <strong><?= htmlspecialchars($ticket['ticket_number']) ?></strong> &bull; Payer: <strong><?= htmlspecialchars($user['full_name']) ?></strong>
+                    </div>
+                </div>
+
+                <!-- Sandbox Badge Indicator -->
+                <div class="alert alert-info py-2 px-3 small d-flex align-items-center gap-2 mb-3">
+                    <i class="bi bi-shield-check fs-5"></i>
+                    <div>
+                        <strong>Sandbox Test Mode Active:</strong> You can simulate live settlements without real money. An official verified receipt will be generated.
+                    </div>
+                </div>
+
+                <!-- Nav Tabs for Payment Methods -->
+                <ul class="nav nav-pills nav-fill mb-3" id="paymentMethodTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-semibold small py-2" id="momo-tab" data-bs-toggle="pill" data-bs-target="#momoPane" type="button" role="tab">
+                            <i class="bi bi-phone me-1"></i> Mobile Money
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-semibold small py-2" id="card-tab" data-bs-toggle="pill" data-bs-target="#cardPane" type="button" role="tab">
+                            <i class="bi bi-credit-card me-1"></i> Debit / Credit Card
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="paymentMethodContent">
+                    <!-- Tab 1: Mobile Money -->
+                    <div class="tab-pane fade show active" id="momoPane" role="tabpanel">
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-secondary">Select Carrier / Network</label>
+                            <div class="row g-2">
+                                <div class="col-4">
+                                    <input type="radio" class="btn-check" name="momo_network" id="netMtn" value="MTN MoMo" checked>
+                                    <label class="btn btn-outline-warning w-100 fw-bold small py-2 text-dark" for="netMtn">MTN</label>
+                                </div>
+                                <div class="col-4">
+                                    <input type="radio" class="btn-check" name="momo_network" id="netTelecel" value="Telecel Cash">
+                                    <label class="btn btn-outline-danger w-100 fw-bold small py-2" for="netTelecel">Telecel</label>
+                                </div>
+                                <div class="col-4">
+                                    <input type="radio" class="btn-check" name="momo_network" id="netAt" value="AT Money">
+                                    <label class="btn btn-outline-primary w-100 fw-bold small py-2" for="netAt">AT Money</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="momoPhone" class="form-label small fw-semibold text-secondary">Mobile Money Number</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-phone"></i></span>
+                                <input type="text" class="form-control" id="momoPhone" value="<?= htmlspecialchars($user['phone'] ?: '0241112233') ?>" placeholder="e.g. 024XXXXXXX">
+                            </div>
+                            <small class="text-muted" style="font-size: 0.75rem;">Simulated prompt will trigger authorization.</small>
+                        </div>
+
+                        <button type="button" class="btn btn-warning w-100 fw-bold py-2 shadow-sm" id="btnPayMomo" onclick="executeSandboxPayment('momo')">
+                            <i class="bi bi-lock-fill me-1"></i> Authorize <?= $currency ?> <?= number_format($ticket['billing_amount'], 2) ?> via MoMo
+                        </button>
+                    </div>
+
+                    <!-- Tab 2: Test Card -->
+                    <div class="tab-pane fade" id="cardPane" role="tabpanel">
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-secondary">Card Number (Sandbox Test Card)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-credit-card-2-front"></i></span>
+                                <input type="text" class="form-control font-monospace" id="cardNum" value="4084 0840 8408 4084" readonly>
+                            </div>
+                        </div>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="form-label small fw-semibold text-secondary">Expiry</label>
+                                <input type="text" class="form-control font-monospace" value="12 / 30" readonly>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small fw-semibold text-secondary">CVV</label>
+                                <input type="text" class="form-control font-monospace" value="408" readonly>
+                            </div>
+                        </div>
+
+                        <button type="button" class="btn btn-primary w-100 fw-bold py-2 shadow-sm" id="btnPayCard" onclick="executeSandboxPayment('card')">
+                            <i class="bi bi-lock-fill me-1"></i> Pay <?= $currency ?> <?= number_format($ticket['billing_amount'], 2) ?> with Test Card
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Processing Screen Overlay (Hidden initially) -->
+                <div id="paymentProcessingScreen" class="d-none text-center py-4">
+                    <div class="spinner-border text-primary mb-3" style="width: 3.5rem; height: 3.5rem;" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h5 class="fw-bold text-dark mb-1" id="procTitle">Contacting Paystack Gateway...</h5>
+                    <p class="text-secondary small mb-0" id="procSubtitle">Simulating carrier USSD prompt and token approval...</p>
+                </div>
+
+                <!-- Success Screen Overlay (Hidden initially) -->
+                <div id="paymentSuccessScreen" class="d-none text-center py-4">
+                    <div class="bg-success text-white rounded-circle d-inline-flex p-3 mb-3 shadow">
+                        <i class="bi bi-check2-circle fs-1"></i>
+                    </div>
+                    <h5 class="fw-bold text-success mb-1">Payment Successfully Confirmed!</h5>
+                    <p class="text-secondary small mb-3" id="procReceiptText">Official receipt generated. Redirecting to receipt voucher...</p>
+                    <a href="#" id="procReceiptBtn" class="btn btn-outline-success btn-sm fw-semibold">
+                        <i class="bi bi-receipt me-1"></i> View Receipt Now
+                    </a>
+                </div>
+            </div>
+
+            <div class="modal-footer bg-light py-2">
+                <small class="text-muted w-100 text-center" style="font-size: 0.75rem;">
+                    <i class="bi bi-shield-lock-fill text-success me-1"></i> Powered by CampusFix Financial Services &bull; 256-bit SSL Encrypted Sandbox
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function executeSandboxPayment(type) {
+    const ticketId = <?= $ticketId ?>;
+    const momoNet = document.querySelector('input[name="momo_network"]:checked')?.value || 'MTN MoMo';
+    const channel = (type === 'momo') ? momoNet : 'Visa/Mastercard';
+
+    // Show Processing State
+    document.getElementById('paymentMethodTabs').classList.add('d-none');
+    document.getElementById('paymentMethodContent').classList.add('d-none');
+    document.getElementById('paymentProcessingScreen').classList.remove('d-none');
+
+    try {
+        // Step 1: Initialize transaction via API
+        const initResp = await fetch('<?= BASE_URL ?>api/payment.php', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                action: 'init_checkout',
+                ticket_id: ticketId
+            })
+        });
+
+        const initData = await initResp.json();
+        if (!initData.success) {
+            throw new Error(initData.message || 'Initialization failed');
+        }
+
+        const paymentRef = initData.data.reference;
+
+        // Step 2: Simulate USSD PIN / Card Authorization delay (1.2 seconds for realistic UI experience)
+        document.getElementById('procTitle').innerText = 'Simulating ' + channel + ' Authorization...';
+        document.getElementById('procSubtitle').innerText = 'Authorizing reference ' + paymentRef + '...';
+
+        await new Promise(r => setTimeout(r, 1200));
+
+        // Step 3: Verify transaction
+        const verifyResp = await fetch('<?= BASE_URL ?>api/payment.php', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                action: 'verify_payment',
+                reference: paymentRef,
+                channel: channel
+            })
+        });
+
+        const verifyData = await verifyResp.json();
+        if (!verifyData.success) {
+            throw new Error(verifyData.message || 'Payment verification failed');
+        }
+
+        // Step 4: Show Success State
+        document.getElementById('paymentProcessingScreen').classList.add('d-none');
+        document.getElementById('paymentSuccessScreen').classList.remove('d-none');
+        document.getElementById('procReceiptText').innerText = 'Receipt #' + verifyData.receipt_number + ' has been registered.';
+        document.getElementById('procReceiptBtn').href = verifyData.receipt_url;
+
+        // Redirect to receipt after 1.8 seconds
+        setTimeout(() => {
+            window.location.href = verifyData.receipt_url;
+        }, 1800);
+
+    } catch (err) {
+        alert('Payment Error: ' + err.message);
+        document.getElementById('paymentProcessingScreen').classList.add('d-none');
+        document.getElementById('paymentMethodTabs').classList.remove('d-none');
+        document.getElementById('paymentMethodContent').classList.remove('d-none');
+    }
+}
+</script>
 
 <?php include_once INCLUDES_PATH . 'footer.php'; ?>
 

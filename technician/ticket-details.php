@@ -9,6 +9,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/auth_guard.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/UploadService.php';
+require_once __DIR__ . '/../includes/PaymentService.php';
 
 require_role('technician');
 
@@ -22,6 +23,8 @@ if ($ticketId <= 0) {
 }
 
 $pdo = get_db_connection();
+$payment = PaymentService::getPaymentByTicket($ticketId);
+$currency = PaymentService::getCurrencySymbol();
 
 // 1. Fetch Ticket Record
 $stmt = $pdo->prepare("
@@ -356,6 +359,33 @@ include_once INCLUDES_PATH . 'sidebar.php';
 
             <!-- Right Column: Location, Reporter Info & Audit -->
             <div class="col-lg-4">
+
+                <?php if (!empty($ticket['payment_status']) && $ticket['payment_status'] !== 'not_required'): ?>
+                    <!-- Material Billing & Surcharge Status -->
+                    <div class="cf-card mb-4 border-start border-4 <?= ($ticket['payment_status'] === 'paid') ? 'border-success' : 'border-warning' ?>">
+                        <div class="d-flex align-items-center justify-content-between border-bottom pb-2 mb-2">
+                            <h6 class="fw-bold text-dark mb-0">
+                                <i class="bi bi-wallet2 text-primary me-1"></i> Part / Material Surcharge
+                            </h6>
+                            <span class="badge <?= ($ticket['payment_status'] === 'paid') ? 'bg-success' : 'bg-warning text-dark' ?> small text-uppercase">
+                                <?= ucfirst($ticket['payment_status']) ?>
+                            </span>
+                        </div>
+                        <div class="small">
+                            <div class="fw-bold text-dark fs-6"><?= $currency ?> <?= number_format($ticket['billing_amount'], 2) ?></div>
+                            <div class="text-secondary"><?= htmlspecialchars($ticket['billing_description'] ?: 'Material Replacement') ?></div>
+                            <?php if ($ticket['payment_status'] === 'paid' && $payment): ?>
+                                <div class="text-success small mt-2">
+                                    <i class="bi bi-check-circle-fill me-1"></i> Settled via <?= htmlspecialchars($payment['payment_channel'] ?: 'MoMo') ?>
+                                </div>
+                            <?php else: ?>
+                                <div class="text-muted small mt-2">
+                                    <i class="bi bi-hourglass-split me-1"></i> Awaiting student settlement via Paystack Sandbox
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
 
                 <!-- Location Pinpoint -->
                 <div class="cf-card mb-4">

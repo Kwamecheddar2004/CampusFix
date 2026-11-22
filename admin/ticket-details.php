@@ -8,6 +8,7 @@ require_once __DIR__ . '/../config/app.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/auth_guard.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/PaymentService.php';
 
 require_role('admin');
 
@@ -21,6 +22,8 @@ if ($ticketId <= 0) {
 }
 
 $pdo = get_db_connection();
+$payment = PaymentService::getPaymentByTicket($ticketId);
+$currency = PaymentService::getCurrencySymbol();
 
 // 1. Fetch Ticket
 $stmt = $pdo->prepare("
@@ -88,6 +91,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header("Location: " . BASE_URL . "admin/ticket-details.php?id=" . $ticketId);
             exit;
         }
+    }
+
+    // Attach Billable Surcharge
+    if ($action === 'attach_surcharge') {
+        $amount = max(0.01, (float) ($_POST['billing_amount'] ?? 0));
+        $desc = trim($_POST['billing_desc'] ?? 'Material and repair surcharge');
+        PaymentService::attachSurcharge($ticketId, $amount, $desc, $user['id']);
+        flash_message('success', "Maintenance surcharge of {$currency} " . number_format($amount, 2) . " attached. Student notified.");
+        header("Location: " . BASE_URL . "admin/ticket-details.php?id=" . $ticketId);
+        exit;
+    }
+
+    // Waive Surcharge
+    if ($action === 'waive_surcharge') {
+        $reason = trim($_POST['waive_reason'] ?? 'Waived by administrative decision.');
+        PaymentService::waiveSurcharge($ticketId, $user['id'], $reason);
+        flash_message('info', 'Maintenance surcharge waived successfully.');
+        header("Location: " . BASE_URL . "admin/ticket-details.php?id=" . $ticketId);
+        exit;
     }
 }
 
@@ -264,6 +286,87 @@ include_once INCLUDES_PATH . 'sidebar.php';
 
             <!-- Right: People, Location & Status History -->
             <div class="col-lg-4">
+
+                <!-- Maintenance Surcharge & Financial Billing Card -->
+                <div class="cf-card mb-4">
+                    <div class="d-flex align-items-center justify-content-between border-bottom pb-2 mb-3">
+                        <h6 class="fw-bold text-dark mb-0">
+                            <i class="bi bi-wallet2 text-primary me-1"></i> Maintenance Surcharge
+                        </h6>
+                        <span class="badge bg-primary-subtle text-primary border border-primary small">Paystack Sandbox</span>
+                    </div>
+
+                    <?php if (!empty($ticket['payment_status']) && $ticket['payment_status'] === 'paid'): ?>
+                        <div class="p-3 bg-success-subtle text-success border border-success rounded-3 mb-3">
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <i class="bi bi-check-circle-fill fs-5"></i>
+                                <strong class="fs-6"><?= $currency ?> <?= number_format($ticket['billing_amount'], 2) ?> Paid</strong>
+                            </div>
+                            <small class="d-block text-dark mb-2">
+                                <?= htmlspecialchars($ticket['billing_description'] ?: 'Material Surcharge') ?>
+                            </small>
+                            <?php if ($payment): ?>
+                                <small class="text-muted d-block">Method: <strong><?= htmlspecialchars($payment['payment_channel'] ?: 'Mobile Money') ?></strong></small>
+                                <small class="text-muted d-block font-monospace">Ref: <?= htmlspecialchars($payment['payment_reference']) ?></small>
+                                <a href="<?= BASE_URL ?>student/receipt.php?ref=<?= urlencode($payment['receipt_number']) ?>" target="_blank" class="btn btn-sm btn-success w-100 fw-semibold mt-2">
+                                    <i class="bi bi-receipt me-1"></i> View Official Receipt
+                                </a>
+                            <?php endif; ?>
+                        </div>
+
+                    <?php elseif (!empty($ticket['payment_status']) && $ticket['payment_status'] === 'pending'): ?>
+                        <div class="p-3 bg-warning-subtle text-warning-emphasis border border-warning rounded-3 mb-3">
+                            <div class="d-flex align-items-center justify-content-between mb-1">
+                                <strong class="fs-6 text-dark"><?= $currency ?> <?= number_format($ticket['billing_amount'], 2) ?></strong>
+                                <span class="badge bg-warning text-dark text-uppercase small">Pending</span>
+                            </div>
+                            <small class="d-block text-secondary mb-2">
+                                <?= htmlspecialchars($ticket['billing_description'] ?: 'Material Surcharge') ?>
+                            </small>
+                            <form method="POST" action="" onsubmit="return confirm('Waive this maintenance surcharge?');">
+                                <?= csrf_field() ?>
+                                <input type="hidden" name="action" value="waive_surcharge">
+                                <button type="submit" class="btn btn-outline-danger btn-sm w-100 fw-semibold">
+                                    <i class="bi bi-slash-circle me-1"></i> Waive Surcharge
+                                </button>
+                            </form>
+                        </div>
+
+                    <?php elseif (!empty($ticket['payment_status']) && $ticket['payment_status'] === 'waived'): ?>
+                        <div class="p-2 bg-light border rounded text-center small text-muted mb-3">
+                            <i class="bi bi-info-circle me-1"></i> Surcharge was waived by administration.
+                        </div>
+                    <?php else: ?>
+                        <div class="p-2 bg-light border rounded text-center small text-muted mb-3">
+                            No billing surcharge attached to this incident.
+                        </div>
+                    <?php endif; ?>
+
+                    <!-- Attach Surcharge Form Toggle -->
+                    <?php if (empty($ticket['payment_status']) || $ticket['payment_status'] === 'not_required' || $ticket['payment_status'] === 'waived'): ?>
+                        <button class="btn btn-outline-primary btn-sm w-100 fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#attachSurchargeBox">
+                            <i class="bi bi-plus-circle me-1"></i> Attach Material Surcharge
+                        </button>
+                        <div class="collapse mt-3" id="attachSurchargeBox">
+                            <form method="POST" action="" class="p-3 bg-light border rounded-3">
+                                <?= csrf_field() ?>
+                                <input type="hidden" name="action" value="attach_surcharge">
+
+                                <div class="mb-2">
+                                    <label class="form-label small fw-semibold text-secondary">Amount (<?= $currency ?>) <span class="text-danger">*</span></label>
+                                    <input type="number" step="0.50" min="1" name="billing_amount" class="form-control form-control-sm" placeholder="e.g. 50.00" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold text-secondary">Reason / Part Description <span class="text-danger">*</span></label>
+                                    <input type="text" name="billing_desc" class="form-control form-control-sm" placeholder="e.g. Replacement HDMI Cable & Adapter" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-sm w-100 fw-semibold">
+                                    <i class="bi bi-save me-1"></i> Save & Alert Student
+                                </button>
+                            </form>
+                        </div>
+                    <?php endif; ?>
+                </div>
 
                 <!-- Assigned Technician -->
                 <div class="cf-card mb-4">

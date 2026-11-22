@@ -22,6 +22,7 @@ erDiagram
     users ||--o{ ticket_status_history : "records (changed_by)"
     users ||--o{ ticket_comments : "authors (user_id)"
     users ||--o{ notifications : "receives (user_id)"
+    users ||--o{ payments : "settles (user_id)"
     users ||--o{ activity_logs : "triggers (user_id)"
 
     categories ||--o{ tickets : "categorizes (category_id)"
@@ -32,6 +33,7 @@ erDiagram
     tickets ||--o{ ticket_status_history : "audits"
     tickets ||--o{ ticket_comments : "discusses"
     tickets ||--o{ notifications : "generates"
+    tickets ||--o{ payments : "bills"
 
     users {
         int id PK
@@ -92,6 +94,9 @@ erDiagram
         text resolution_notes
         int satisfaction_rating "1-5 Stars"
         text satisfaction_feedback
+        decimal billing_amount
+        string billing_description
+        string payment_status "not_required | pending | paid | waived"
         datetime created_at
         datetime updated_at
     }
@@ -150,6 +155,23 @@ erDiagram
         text error_message
         boolean is_read
         datetime read_at
+        datetime created_at
+    }
+
+    payments {
+        int id PK
+        string payment_reference UK
+        string receipt_number UK
+        int ticket_id FK
+        int user_id FK
+        decimal amount
+        string currency
+        string gateway "paystack_sandbox"
+        string payment_method "mobile_money | card"
+        string payment_channel "MTN MoMo | Telecel Cash | AT Money | Visa"
+        string status "pending | success | failed"
+        text gateway_response
+        datetime paid_at
         datetime created_at
     }
 

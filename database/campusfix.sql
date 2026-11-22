@@ -103,6 +103,9 @@ CREATE TABLE `tickets` (
   `resolution_notes` TEXT DEFAULT NULL COMMENT 'Summary of repair work done by technician',
   `satisfaction_rating` TINYINT UNSIGNED DEFAULT NULL COMMENT '1 to 5 star rating by student reporter upon resolution',
   `satisfaction_feedback` TEXT DEFAULT NULL,
+  `billing_amount` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'Repair/Material surcharge if billable',
+  `billing_description` VARCHAR(255) DEFAULT NULL COMMENT 'Reason for surcharge (e.g. Replacement Lamp/Cable)',
+  `payment_status` ENUM('not_required', 'pending', 'paid', 'waived') NOT NULL DEFAULT 'not_required',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -112,6 +115,7 @@ CREATE TABLE `tickets` (
   KEY `idx_tickets_category` (`category_id`),
   KEY `idx_tickets_location` (`location_id`),
   KEY `idx_tickets_status` (`status`),
+  KEY `idx_tickets_payment_status` (`payment_status`),
   KEY `idx_tickets_severity` (`severity`),
   KEY `idx_tickets_priority` (`priority`),
   KEY `idx_tickets_created_at` (`created_at`),
@@ -231,7 +235,41 @@ CREATE TABLE `notifications` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='User notification delivery queue and logs';
 
 -- ------------------------------------------------------------------------------
--- 10. Table: activity_logs
+-- 10. Table: payments
+-- Payment transactions for damage surcharges, materials and repair contributions
+-- Supports Paystack Sandbox, Mobile Money, and card sandbox settlements
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `payments`;
+CREATE TABLE `payments` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `payment_reference` VARCHAR(60) NOT NULL COMMENT 'Unique payment ref e.g. CF-PAY-2026-0001',
+  `receipt_number` VARCHAR(60) NOT NULL COMMENT 'Official printable receipt number e.g. RCP-2026-0001',
+  `ticket_id` INT UNSIGNED NOT NULL,
+  `user_id` INT UNSIGNED NOT NULL COMMENT 'Student/Reporter payer',
+  `amount` DECIMAL(10,2) NOT NULL,
+  `currency` VARCHAR(10) NOT NULL DEFAULT 'GHS',
+  `gateway` VARCHAR(40) NOT NULL DEFAULT 'paystack_sandbox' COMMENT 'paystack_sandbox, momo_mock, manual_receipt',
+  `payment_method` VARCHAR(30) NOT NULL DEFAULT 'mobile_money' COMMENT 'mobile_money, card, bank_transfer',
+  `payment_channel` VARCHAR(50) DEFAULT NULL COMMENT 'MTN MoMo, Telecel Cash, AT Money, Visa, Mastercard',
+  `payer_phone` VARCHAR(30) DEFAULT NULL,
+  `payer_email` VARCHAR(100) DEFAULT NULL,
+  `status` ENUM('pending', 'success', 'failed', 'refunded') NOT NULL DEFAULT 'pending',
+  `gateway_response` TEXT DEFAULT NULL COMMENT 'Raw gateway verification payload or mock transaction ID',
+  `paid_at` DATETIME DEFAULT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_payments_reference` (`payment_reference`),
+  UNIQUE KEY `uk_payments_receipt` (`receipt_number`),
+  KEY `idx_payments_ticket` (`ticket_id`),
+  KEY `idx_payments_user` (`user_id`),
+  KEY `idx_payments_status` (`status`),
+  CONSTRAINT `fk_payments_ticket` FOREIGN KEY (`ticket_id`) REFERENCES `tickets` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_payments_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Payment transaction records and receipts';
+
+-- ------------------------------------------------------------------------------
+-- 11. Table: activity_logs
 -- System-wide audit log recording actions, IP addresses, and events
 -- ------------------------------------------------------------------------------
 DROP TABLE IF EXISTS `activity_logs`;
@@ -320,26 +358,26 @@ INSERT INTO `campus_locations` (`id`, `building_name`, `building_code`, `floor`,
 (8, 'ICT Directorate Annex', 'ICT-CTR', 'Ground Floor', 'Server Room Annex', 'Campus network operations gateway and distribution hub', 1);
 
 -- ------------------------------------------------------------------------------
--- Seed Tickets (Covering all real-world lifecycle statuses)
+-- Seed Tickets (Covering all real-world lifecycle statuses & billing surcharges)
 -- ------------------------------------------------------------------------------
-INSERT INTO `tickets` (`id`, `ticket_number`, `reporter_id`, `category_id`, `location_id`, `location_details`, `title`, `description`, `severity`, `priority`, `status`, `assigned_to`, `assigned_at`, `resolved_at`, `closed_at`, `resolution_notes`, `satisfaction_rating`, `satisfaction_feedback`, `created_at`) VALUES
--- Ticket 1: Resolved & Confirmed
-(1, 'CF-2026-0001', 5, 1, 1, 'Near workstation 12 to 18 on the left row', 'Campus Wi-Fi AP constantly disconnecting in CS Lab 1', 'The Cisco Access Point AP-CS1 blinks amber and drops client connections every 5 minutes during lab sessions.', 'high', 'high', 'resolved', 2, '2026-11-15 09:30:00', '2026-11-15 14:45:00', '2026-11-16 10:00:00', 'Firmware updated on AP-CS1, PoE switch port recycled and static IP binding re-configured. Tested with 35 concurrent clients with 0% packet loss.', 5, 'Great job! The Wi-Fi is super fast and stable now during afternoon practicals.', '2026-11-15 08:15:00'),
+INSERT INTO `tickets` (`id`, `ticket_number`, `reporter_id`, `category_id`, `location_id`, `location_details`, `title`, `description`, `severity`, `priority`, `status`, `assigned_to`, `assigned_at`, `resolved_at`, `closed_at`, `resolution_notes`, `satisfaction_rating`, `satisfaction_feedback`, `billing_amount`, `billing_description`, `payment_status`, `created_at`) VALUES
+-- Ticket 1: Resolved & Confirmed (No surcharge)
+(1, 'CF-2026-0001', 5, 1, 1, 'Near workstation 12 to 18 on the left row', 'Campus Wi-Fi AP constantly disconnecting in CS Lab 1', 'The Cisco Access Point AP-CS1 blinks amber and drops client connections every 5 minutes during lab sessions.', 'high', 'high', 'resolved', 2, '2026-11-15 09:30:00', '2026-11-15 14:45:00', '2026-11-16 10:00:00', 'Firmware updated on AP-CS1, PoE switch port recycled and static IP binding re-configured. Tested with 35 concurrent clients with 0% packet loss.', 5, 'Great job! The Wi-Fi is super fast and stable now during afternoon practicals.', 0.00, NULL, 'not_required', '2026-11-15 08:15:00'),
 
 -- Ticket 2: In Progress
-(2, 'CF-2026-0002', 6, 3, 2, 'Ceiling mount above the podium', 'Epson ceiling projector flickering green and turning off', 'Projector lamp flickers green for 2 minutes then overheats and shuts down with an orange indicator lamp.', 'medium', 'medium', 'in_progress', 2, '2026-11-18 10:00:00', NULL, NULL, NULL, NULL, NULL, '2026-11-18 09:00:00'),
+(2, 'CF-2026-0002', 6, 3, 2, 'Ceiling mount above the podium', 'Epson ceiling projector flickering green and turning off', 'Projector lamp flickers green for 2 minutes then overheats and shuts down with an orange indicator lamp.', 'medium', 'medium', 'in_progress', 2, '2026-11-18 10:00:00', NULL, NULL, NULL, NULL, NULL, 0.00, NULL, 'not_required', '2026-11-18 09:00:00'),
 
--- Ticket 3: Assigned
-(3, 'CF-2026-0003', 5, 5, 3, 'Wall column adjacent to study carrels 24-28', 'Sparks and burning smell from 3-pin power outlet', 'When students plug laptop chargers into socket #4 on column C, small sparks fly out and there is a burning plastic odor.', 'critical', 'urgent', 'assigned', 3, '2026-11-20 11:30:00', NULL, NULL, NULL, NULL, NULL, '2026-11-20 11:05:00'),
+-- Ticket 3: Assigned (Pending Payment Surcharge for Demonstration)
+(3, 'CF-2026-0003', 5, 5, 3, 'Wall column adjacent to study carrels 24-28', 'Sparks and burning smell from 3-pin power outlet', 'When students plug laptop chargers into socket #4 on column C, small sparks fly out and there is a burning plastic odor.', 'critical', 'urgent', 'assigned', 3, '2026-11-20 11:30:00', NULL, NULL, NULL, NULL, NULL, 45.00, 'Safety Breaker & Double Switched Socket Replacement Material', 'pending', '2026-11-20 11:05:00'),
 
 -- Ticket 4: Pending (New report awaiting triage)
-(4, 'CF-2026-0004', 7, 7, 7, '2nd Floor Male Washroom, cubicle 3', 'High-pressure water leakage from cistern supply valve', 'The flexible hose under the cistern burst and water is flooding the washroom floor and seeping into the hallway.', 'high', 'urgent', 'pending', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026-11-21 07:45:00'),
+(4, 'CF-2026-0004', 7, 7, 7, '2nd Floor Male Washroom, cubicle 3', 'High-pressure water leakage from cistern supply valve', 'The flexible hose under the cistern burst and water is flooding the washroom floor and seeping into the hallway.', 'high', 'urgent', 'pending', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0.00, NULL, 'not_required', '2026-11-21 07:45:00'),
 
 -- Ticket 5: Reopened (Previous repair was incomplete)
-(5, 'CF-2026-0005', 6, 6, 5, 'Overhead row 2 above soldering benches', 'Fluorescent tubes buzzing loudly and strobing uncontrollably', 'The ballast was replaced last week but the light started strobing and buzzing again today during lab experiment.', 'low', 'medium', 'reopened', 3, '2026-11-19 14:00:00', NULL, NULL, 'Previous technician replaced starter only. Ballast transformer is vibrating and needs full replacement unit.', NULL, NULL, '2026-11-12 16:20:00'),
+(5, 'CF-2026-0005', 6, 6, 5, 'Overhead row 2 above soldering benches', 'Fluorescent tubes buzzing loudly and strobing uncontrollably', 'The ballast was replaced last week but the light started strobing and buzzing again today during lab experiment.', 'low', 'medium', 'reopened', 3, '2026-11-19 14:00:00', NULL, NULL, 'Previous technician replaced starter only. Ballast transformer is vibrating and needs full replacement unit.', NULL, NULL, 0.00, NULL, 'not_required', '2026-11-12 16:20:00'),
 
--- Ticket 6: Closed
-(6, 'CF-2026-0006', 7, 4, 4, 'Next to librarian front desk', 'HP LaserJet M605 paper feed roller slipping and jamming', 'Printer displays Error 13.00.00 Paper Jam. Paper tray 2 feed roller is worn out and fails to pick sheets.', 'medium', 'medium', 'closed', 2, '2026-11-10 13:00:00', '2026-11-11 11:30:00', '2026-11-12 09:00:00', 'Replaced pickup roller and separation pad (Part #RM2-6303). Cleaned paper path sensors. Successfully test printed 100 duplex pages.', 4, 'Fixed on time. Thank you.', '2026-11-10 11:15:00');
+-- Ticket 6: Closed (Paid Surcharge with Verified Paystack Sandbox Receipt)
+(6, 'CF-2026-0006', 7, 4, 4, 'Next to librarian front desk', 'HP LaserJet M605 paper feed roller slipping and jamming', 'Printer displays Error 13.00.00 Paper Jam. Paper tray 2 feed roller is worn out and fails to pick sheets.', 'medium', 'medium', 'closed', 2, '2026-11-10 13:00:00', '2026-11-11 11:30:00', '2026-11-12 09:00:00', 'Replaced pickup roller and separation pad (Part #RM2-6303). Cleaned paper path sensors. Successfully test printed 100 duplex pages.', 4, 'Fixed on time. Thank you.', 75.00, 'Replacement HP LaserJet Pickup Roller & Separation Pad (Part #RM2-6303)', 'paid', '2026-11-10 11:15:00');
 
 -- ------------------------------------------------------------------------------
 -- Seed Ticket Assignments
@@ -399,7 +437,14 @@ INSERT INTO `notifications` (`id`, `user_id`, `ticket_id`, `title`, `message`, `
 (2, 5, 1, 'Ticket Resolved', 'Technician Samuel Osei marked ticket CF-2026-0001 as Resolved. Please confirm.', 'email', 'sent', 1, '2026-11-15 15:00:00', '2026-11-15 14:46:00'),
 (3, 2, 2, 'New Job Assigned', 'Admin assigned you ticket CF-2026-0002: Epson ceiling projector flickering.', 'in_app', 'sent', 1, '2026-11-18 10:05:00', '2026-11-18 10:00:00'),
 (4, 3, 3, 'URGENT: Electrical Hazard Assigned', 'Ticket CF-2026-0003: Sparks from power outlet in Balme Library.', 'sms', 'mock_delivered', 0, NULL, '2026-11-20 11:30:00'),
-(5, 1, 4, 'New Fault Reported', 'Student Michael Boateng reported a water leakage in Commonwealth Hall (CF-2026-0004).', 'in_app', 'sent', 0, NULL, '2026-11-21 07:45:00');
+(5, 1, 4, 'New Fault Reported', 'Student Michael Boateng reported a water leakage in Commonwealth Hall (CF-2026-0004).', 'in_app', 'sent', 0, NULL, '2026-11-21 07:45:00'),
+(6, 7, 6, 'Payment Receipt Confirmed', 'Payment of GH₵ 75.00 for Ticket CF-2026-0006 confirmed via Paystack Sandbox (Ref: CF-PAY-2026-0001).', 'in_app', 'sent', 1, '2026-11-10 12:35:00', '2026-11-10 12:30:00');
+
+-- ------------------------------------------------------------------------------
+-- Seed Payments (Paystack Sandbox & Mobile Money Settlements)
+-- ------------------------------------------------------------------------------
+INSERT INTO `payments` (`id`, `payment_reference`, `receipt_number`, `ticket_id`, `user_id`, `amount`, `currency`, `gateway`, `payment_method`, `payment_channel`, `payer_phone`, `payer_email`, `status`, `gateway_response`, `paid_at`, `created_at`) VALUES
+(1, 'CF-PAY-2026-0001', 'RCP-2026-0001', 6, 7, 75.00, 'GHS', 'paystack_sandbox', 'mobile_money', 'MTN MoMo', '+233267778899', 'michael.stu@campusfix.edu', 'success', '{"status":"success","reference":"CF-PAY-2026-0001","amount":7500,"currency":"GHS","channel":"mobile_money","bank":"MTN MoMo","simulation":true}', '2026-11-10 12:30:00', '2026-11-10 12:28:00');
 
 -- ------------------------------------------------------------------------------
 -- Seed System Settings
@@ -428,7 +473,14 @@ INSERT INTO `system_settings` (`id`, `setting_key`, `setting_value`, `setting_gr
 (21, 'sms_api_key', '', 'sms', 'API key for third-party SMS gateway', 0),
 (22, 'sms_sender_id', 'CampusFix', 'sms', 'Sender alphanumeric ID on mobile phones', 1),
 (23, 'max_upload_size_mb', '5', 'security', 'Maximum image upload size in megabytes per file', 1),
-(24, 'allowed_image_types', 'jpg,jpeg,png,webp', 'security', 'Comma-separated allowed image extensions', 1);
+(24, 'allowed_image_types', 'jpg,jpeg,png,webp', 'security', 'Comma-separated allowed image extensions', 1),
+(25, 'payment_gateway', 'paystack', 'payment', 'Default payment gateway provider (paystack, stripe, mock)', 0),
+(26, 'payment_sandbox_mode', '1', 'payment', 'If 1, operates in sandbox/test simulation without charging real money', 1),
+(27, 'paystack_public_key', 'pk_test_sample_campusfix_key', 'payment', 'Paystack public test key', 1),
+(28, 'paystack_secret_key', 'sk_test_sample_campusfix_secret', 'payment', 'Paystack secret test key', 0),
+(29, 'currency_code', 'GHS', 'payment', 'Currency ISO code', 1),
+(30, 'currency_symbol', 'GH₵', 'payment', 'Currency display symbol', 1),
+(31, 'billing_enabled', '1', 'payment', 'Global toggle to enable maintenance surcharges and payments', 1);
 
 -- ------------------------------------------------------------------------------
 -- Seed Activity Logs (Sample historical audit records)

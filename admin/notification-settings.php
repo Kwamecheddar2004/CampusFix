@@ -11,13 +11,14 @@ require_once __DIR__ . '/../includes/auth_guard.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/PHPMailerLite.php';
 require_once __DIR__ . '/../includes/SmsService.php';
+require_once __DIR__ . '/../includes/PaymentService.php';
 
 require_role('admin');
 
 $user = current_user();
-$pageTitle = 'Notification Settings';
-$pageHeading = 'Notification Engine & Gateways';
-$pageSubtitle = 'Configure SMTP email, SMS integration gateway, test mock dispatches, and review logs';
+$pageTitle = 'Gateways & Integrations';
+$pageHeading = 'External Gateways & Sandbox Engine';
+$pageSubtitle = 'Configure Paystack payment sandbox, SMS integration gateway, SMTP email, and inspect delivery ledgers';
 
 $pdo = get_db_connection();
 $testResult = null;
@@ -38,11 +39,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'mail_from_address' => trim($_POST['mail_from_address'] ?? ''),
             'mail_from_name'    => trim($_POST['mail_from_name'] ?? 'CampusFix Helpdesk'),
             'mail_mock_mode'    => isset($_POST['mail_mock_mode']) ? '1' : '0',
-            'sms_enabled'       => isset($_POST['sms_enabled']) ? '1' : '0',
-            'sms_mock_mode'     => isset($_POST['sms_mock_mode']) ? '1' : '0',
-            'sms_provider'      => trim($_POST['sms_provider'] ?? 'hubtel'),
-            'sms_api_key'       => trim($_POST['sms_api_key'] ?? ''),
-            'sms_sender_id'     => trim($_POST['sms_sender_id'] ?? 'CampusFix')
+            'sms_enabled'          => isset($_POST['sms_enabled']) ? '1' : '0',
+            'sms_mock_mode'        => isset($_POST['sms_mock_mode']) ? '1' : '0',
+            'sms_provider'         => trim($_POST['sms_provider'] ?? 'hubtel'),
+            'sms_api_key'          => trim($_POST['sms_api_key'] ?? ''),
+            'sms_sender_id'        => trim($_POST['sms_sender_id'] ?? 'CampusFix'),
+            'payment_gateway'      => trim($_POST['payment_gateway'] ?? 'paystack'),
+            'payment_sandbox_mode' => isset($_POST['payment_sandbox_mode']) ? '1' : '0',
+            'paystack_public_key'  => trim($_POST['paystack_public_key'] ?? ''),
+            'paystack_secret_key'  => trim($_POST['paystack_secret_key'] ?? ''),
+            'currency_symbol'      => trim($_POST['currency_symbol'] ?? 'GH₵'),
+            'currency_code'        => trim($_POST['currency_code'] ?? 'GHS')
         ];
 
         $upStmt = $pdo->prepare("UPDATE system_settings SET setting_value = ?, updated_at = NOW() WHERE setting_key = ?");
@@ -83,6 +90,9 @@ $logStmt = $pdo->query("
     LIMIT 30
 ");
 $notifLogs = $logStmt->fetchAll();
+
+$recentPayments = PaymentService::getRecentPayments(25);
+$currency = PaymentService::getCurrencySymbol();
 
 include_once INCLUDES_PATH . 'header.php';
 include_once INCLUDES_PATH . 'sidebar.php';
@@ -205,6 +215,52 @@ include_once INCLUDES_PATH . 'sidebar.php';
                                 </label>
                                 <div class="text-muted" style="font-size: 0.75rem;">
                                     When credentials are unavailable, system logs mock transmissions to <code>logs/sms_mock.log</code> and flags them as <code>mock_delivered</code> in database.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Payment Gateway & Surcharge Sandbox Section -->
+                        <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">
+                            <i class="bi bi-credit-card-2-front text-primary me-1"></i> Paystack Payment Gateway & Sandbox
+                        </h6>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-semibold text-secondary">Gateway Provider</label>
+                                <select name="payment_gateway" class="form-select">
+                                    <option value="paystack" selected>Paystack (Mobile Money & Card Sandbox)</option>
+                                    <option value="flutterwave">Flutterwave Sandbox</option>
+                                </select>
+                            </div>
+                            <div class="col-sm-3">
+                                <label class="form-label small fw-semibold text-secondary">Currency Symbol</label>
+                                <input type="text" name="currency_symbol" class="form-control" value="<?= htmlspecialchars(get_system_setting('currency_symbol', 'GH₵')) ?>">
+                            </div>
+                            <div class="col-sm-3">
+                                <label class="form-label small fw-semibold text-secondary">ISO Code</label>
+                                <input type="text" name="currency_code" class="form-control" value="<?= htmlspecialchars(get_system_setting('currency_code', 'GHS')) ?>">
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-semibold text-secondary">Paystack Public Test Key</label>
+                                <input type="text" name="paystack_public_key" class="form-control" value="<?= htmlspecialchars(get_system_setting('paystack_public_key', 'pk_test_sample_campusfix_key')) ?>" placeholder="pk_test_...">
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-semibold text-secondary">Paystack Secret Test Key</label>
+                                <input type="password" name="paystack_secret_key" class="form-control" value="<?= htmlspecialchars(get_system_setting('paystack_secret_key', '')) ?>" placeholder="sk_test_...">
+                            </div>
+                        </div>
+
+                        <div class="mb-4 p-3 bg-light rounded-3 border">
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" name="payment_sandbox_mode" id="payment_sandbox_mode" value="1" <?= ((int) get_system_setting('payment_sandbox_mode', '1') === 1) ? 'checked' : '' ?>>
+                                <label class="form-check-label fw-bold text-dark small" for="payment_sandbox_mode">
+                                    Payment Sandbox & Mobile Money Simulation Mode
+                                </label>
+                                <div class="text-muted" style="font-size: 0.75rem;">
+                                    When checked, allows students to simulate Mobile Money (MTN, Telecel, AT) and Card settlements without real deductions. Official verified receipts are generated instantly.
                                 </div>
                             </div>
                         </div>
@@ -332,6 +388,86 @@ include_once INCLUDES_PATH . 'sidebar.php';
                                 </td>
                             </tr>
                         <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Recent Maintenance Payments Ledger Card -->
+        <div class="cf-card mt-4">
+            <div class="cf-card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div>
+                    <h5 class="cf-card-title mb-0">Maintenance Surcharge Payments & Receipts</h5>
+                    <small class="text-muted">Settlements processed via Paystack Sandbox and Mobile Money</small>
+                </div>
+                <span class="badge bg-primary-subtle text-primary border border-primary px-3 py-2 small">
+                    <i class="bi bi-cash-stack me-1"></i> <?= count($recentPayments) ?> Transactions
+                </span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="cf-table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Date / Time</th>
+                            <th>Receipt #</th>
+                            <th>Ticket</th>
+                            <th>Payer</th>
+                            <th>Channel</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th class="text-end">Voucher</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($recentPayments)): ?>
+                            <tr>
+                                <td colspan="8" class="text-center py-4 text-muted small">
+                                    <i class="bi bi-inbox fs-4 d-block mb-1"></i>
+                                    No payment transactions recorded yet.
+                                </td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($recentPayments as $p): ?>
+                                <tr>
+                                    <td class="small text-muted font-monospace"><?= time_ago($p['paid_at'] ?: $p['created_at']) ?></td>
+                                    <td>
+                                        <code class="fw-bold text-dark"><?= htmlspecialchars($p['receipt_number']) ?></code>
+                                        <div class="text-muted small" style="font-size: 0.7rem;"><?= htmlspecialchars($p['payment_reference']) ?></div>
+                                    </td>
+                                    <td>
+                                        <a href="<?= BASE_URL ?>admin/ticket-details.php?id=<?= $p['ticket_id'] ?>" class="fw-bold text-primary text-decoration-none">
+                                            <?= htmlspecialchars($p['ticket_number']) ?>
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold text-dark small"><?= htmlspecialchars($p['payer_name']) ?></div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border small">
+                                            <i class="bi bi-phone text-primary me-1"></i> <?= htmlspecialchars($p['payment_channel'] ?: 'Mobile Money') ?>
+                                        </span>
+                                    </td>
+                                    <td class="fw-bold text-dark">
+                                        <?= $currency ?> <?= number_format($p['amount'], 2) ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($p['status'] === 'success'): ?>
+                                            <span class="badge bg-success-subtle text-success border border-success" style="font-size: 0.72rem;">
+                                                <i class="bi bi-check-circle-fill me-1"></i> Paid
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="badge bg-warning text-dark" style="font-size: 0.72rem;"><?= htmlspecialchars($p['status']) ?></span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="text-end">
+                                        <a href="<?= BASE_URL ?>student/receipt.php?ref=<?= urlencode($p['receipt_number']) ?>" target="_blank" class="btn btn-outline-secondary btn-sm py-1 px-2" title="Print Receipt">
+                                            <i class="bi bi-printer"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                     </tbody>
                 </table>
             </div>

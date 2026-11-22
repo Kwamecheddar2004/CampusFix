@@ -45,10 +45,10 @@
    - Interactive Chart.js analytics: Category breakdowns, building trouble spots, technician workload distribution, and Mean Time to Resolution (MTTR).
    - User and role management (Students, Technicians, Admins).
 
-5. **Multi-Channel Notification Engine:**
-   - Real-time in-app notification bell with unread badge counter.
-   - Configurable PHPMailer SMTP email dispatch.
-   - Resilient SMS gateway with a built-in **Mock Simulation Mode** that logs dispatch payloads to the database when external API keys are unavailable.
+5. **External Services & Sandbox Integrations:**
+   - **Paystack Payment Sandbox & Mobile Money Gateway:** Surcharge checkout supporting simulated MTN MoMo, Telecel Cash, AT Money, and Visa/Mastercard test cards.
+   - **Electronic Payment Receipts:** Cryptographically verified printable receipt vouchers (`RCP-2026-XXXX`).
+   - **Multi-Channel Notifications:** Real-time in-app alert bell, PHPMailer SMTP email dispatch, and resilient SMS gateway with a zero-cost **Mock Simulation Mode** that logs dispatches to the database and `logs/sms_mock.log` without requiring paid credentials.
 
 6. **Enterprise-Grade Security:**
    - 100% PDO prepared statements for total SQL Injection protection.
