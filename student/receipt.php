@@ -148,7 +148,7 @@ $pageTitle = 'Payment Receipt - ' . $payment['receipt_number'];
                     <div class="paid-stamp mb-2">
                         <i class="bi bi-check-circle-fill me-1"></i> PAID
                     </div>
-                    <div class="text-muted small">Verified by Paystack Sandbox</div>
+                    <div class="text-muted small">Verified via Paystack</div>
                 </div>
             </div>
 
@@ -217,7 +217,7 @@ $pageTitle = 'Payment Receipt - ' . $payment['receipt_number'];
                     <i class="bi bi-shield-lock-fill text-success fs-4"></i>
                     <div>
                         <strong>Cryptographically Verified Receipt</strong><br>
-                        This transaction was processed through the CampusFix Payment Gateway test sandbox.
+                        This transaction was processed and verified through the CampusFix Paystack Gateway.
                     </div>
                 </div>
                 <div class="text-muted font-monospace small">

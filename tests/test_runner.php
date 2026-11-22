@@ -132,13 +132,13 @@ class CampusFixTestRunner
             'SLA hours constants do not match project specification.'
         );
 
-        // Test 12: External Payment Gateway (Paystack Sandbox & Currency)
-        $isSandbox = PaymentService::isSandbox();
+        // Test 12: External Payment Gateway (Paystack Storefront & Currency)
+        $paymentLink = PaymentService::getPaymentPageUrl();
         $currencySymbol = PaymentService::getCurrencySymbol();
         $this->assert(
-            'TC-12: External Payment Gateway (Paystack Sandbox & Currency)',
-            $isSandbox === true && in_array($currencySymbol, ['GH₵', 'GHS', '$']),
-            'Payment service failed to load sandbox mode or currency symbol.'
+            'TC-12: External Payment Gateway (Paystack Storefront & Currency)',
+            !empty($paymentLink) && str_contains($paymentLink, 'paystack') && in_array($currencySymbol, ['GH₵', 'GHS', '$']),
+            'Payment service failed to load Paystack payment link or currency symbol.'
         );
     }
 

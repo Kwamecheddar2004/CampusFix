@@ -180,7 +180,7 @@ class PaymentService
     /**
      * Initialize a payment transaction and generate unique references
      */
-    public static function initializePayment(int $ticketId, int $userId, float $amount, string $email, string $phone, string $channel = 'mobile_money', string $provider = 'paystack_sandbox'): array
+    public static function initializePayment(int $ticketId, int $userId, float $amount, string $email, string $phone, string $channel = 'Paystack Online', string $provider = 'paystack'): array
     {
         $pdo = get_db_connection();
         self::ensureSchema($pdo);

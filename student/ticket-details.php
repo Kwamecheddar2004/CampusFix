@@ -266,7 +266,7 @@ $currentStep = $steps[$ticket['status']] ?? 1;
                                     <?= ucfirst($ticket['payment_status']) ?>
                                 </span>
                                 <span class="badge bg-primary-subtle text-primary border border-primary small">
-                                    <i class="bi bi-shield-check me-1"></i> Paystack Sandbox
+                                    <i class="bi bi-shield-check me-1"></i> Paystack
                                 </span>
                             </div>
                             <div class="text-secondary small">
@@ -554,14 +554,14 @@ $currentStep = $steps[$ticket['status']] ?? 1;
     </div>
 </div>
 
-<!-- Modal C: Paystack Payment Sandbox Gateway -->
+<!-- Modal C: Paystack Payment Gateway -->
 <div class="modal fade" id="paymentModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-dark text-white">
                 <div class="d-flex align-items-center gap-2">
                     <span class="badge bg-primary px-2 py-1 small">PAYSTACK</span>
-                    <h5 class="modal-title fw-bold fs-6 mb-0">Secure Maintenance Surcharge Checkout</h5>
+                    <h5 class="modal-title fw-bold fs-6 mb-0">Pay Maintenance Surcharge via Paystack</h5>
                 </div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
@@ -581,120 +581,35 @@ $currentStep = $steps[$ticket['status']] ?? 1;
                     </div>
                 </div>
 
-                <!-- Sandbox Badge Indicator -->
-                <div class="alert alert-info py-2 px-3 small d-flex align-items-center gap-2 mb-3">
-                    <i class="bi bi-shield-check fs-5"></i>
-                    <div>
-                        <strong>Sandbox Test Mode Active:</strong> You can simulate live settlements without real money. An official verified receipt will be generated.
-                    </div>
-                </div>
-
-                <!-- Nav Tabs for Payment Methods -->
-                <ul class="nav nav-pills nav-fill mb-3" id="paymentMethodTabs" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active fw-semibold small py-2" id="paystack-live-tab" data-bs-toggle="pill" data-bs-target="#paystackLivePane" type="button" role="tab">
-                            <i class="bi bi-box-arrow-up-right me-1 text-primary"></i> Paystack Page
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link fw-semibold small py-2" id="momo-tab" data-bs-toggle="pill" data-bs-target="#momoPane" type="button" role="tab">
-                            <i class="bi bi-phone me-1"></i> MoMo Simulator
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link fw-semibold small py-2" id="card-tab" data-bs-toggle="pill" data-bs-target="#cardPane" type="button" role="tab">
-                            <i class="bi bi-credit-card me-1"></i> Card Sandbox
-                        </button>
-                    </li>
-                </ul>
-
-                <div class="tab-content" id="paymentMethodContent">
-                    <!-- Tab 1: Live Paystack Payment Page -->
-                    <div class="tab-pane fade show active" id="paystackLivePane" role="tabpanel">
-                        <div class="p-3 bg-light rounded-3 border mb-3 text-center">
-                            <span class="badge bg-primary text-uppercase px-2 py-1 mb-2">Official Paystack Portal</span>
-                            <h6 class="fw-bold text-dark mb-1">Pay on Official CampusFix Storefront</h6>
-                            <p class="text-secondary small mb-3">
-                                Click the link below to open the official Paystack payment page in a new window to pay with live Mobile Money or Card:
-                            </p>
-                            <a href="<?= htmlspecialchars($paystackPageUrl) ?>" target="_blank" class="btn btn-primary w-100 fw-bold py-2 shadow-sm d-flex align-items-center justify-content-center gap-2 mb-2">
-                                <i class="bi bi-box-arrow-up-right"></i> Open Paystack Payment Page
-                            </a>
-                            <small class="text-muted d-block font-monospace" style="font-size: 0.72rem;">
-                                <?= htmlspecialchars($paystackPageUrl) ?>
-                            </small>
+                <div id="paymentActionsContainer">
+                    <!-- Step 1: Open Official Paystack Link -->
+                    <div class="p-3 bg-light rounded-3 border mb-3">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="badge bg-primary rounded-pill px-2 py-1">Step 1</span>
+                            <strong class="text-dark small">Complete Payment on Paystack</strong>
                         </div>
-
-                        <div class="p-3 bg-white rounded-3 border">
-                            <label class="form-label small fw-semibold text-secondary mb-1">
-                                <i class="bi bi-check2-circle text-success me-1"></i> Confirm & Issue Voucher
-                            </label>
-                            <p class="text-muted small mb-3" style="font-size: 0.78rem;">
-                                Once you have completed payment on the Paystack link above, click below to confirm your transaction and generate your official printable receipt voucher.
-                            </p>
-                            <button type="button" class="btn btn-success w-100 fw-bold py-2 shadow-sm" id="btnConfirmPaystack" onclick="executeSandboxPayment('paystack_live')">
-                                <i class="bi bi-receipt me-1"></i> I Have Paid on Paystack — Issue Receipt
-                            </button>
-                        </div>
+                        <p class="text-secondary small mb-3">
+                            Click below to open your secure Paystack payment page in a new window. You can pay with <strong>Mobile Money (MTN, Telecel, AT)</strong> or <strong>Card</strong>:
+                        </p>
+                        <a href="<?= htmlspecialchars($paystackPageUrl) ?>" target="_blank" class="btn btn-primary w-100 fw-bold py-3 shadow-sm d-flex align-items-center justify-content-center gap-2 mb-2">
+                            <i class="bi bi-box-arrow-up-right fs-5"></i> Open Paystack Payment Page
+                        </a>
+                        <small class="text-muted d-block text-center font-monospace" style="font-size: 0.72rem;">
+                            <?= htmlspecialchars($paystackPageUrl) ?>
+                        </small>
                     </div>
 
-                    <!-- Tab 2: Mobile Money -->
-                    <div class="tab-pane fade" id="momoPane" role="tabpanel">
-                        <div class="mb-3">
-                            <label class="form-label small fw-semibold text-secondary">Select Carrier / Network</label>
-                            <div class="row g-2">
-                                <div class="col-4">
-                                    <input type="radio" class="btn-check" name="momo_network" id="netMtn" value="MTN MoMo" checked>
-                                    <label class="btn btn-outline-warning w-100 fw-bold small py-2 text-dark" for="netMtn">MTN</label>
-                                </div>
-                                <div class="col-4">
-                                    <input type="radio" class="btn-check" name="momo_network" id="netTelecel" value="Telecel Cash">
-                                    <label class="btn btn-outline-danger w-100 fw-bold small py-2" for="netTelecel">Telecel</label>
-                                </div>
-                                <div class="col-4">
-                                    <input type="radio" class="btn-check" name="momo_network" id="netAt" value="AT Money">
-                                    <label class="btn btn-outline-primary w-100 fw-bold small py-2" for="netAt">AT Money</label>
-                                </div>
-                            </div>
+                    <!-- Step 2: Confirm & Issue Official Voucher -->
+                    <div class="p-3 bg-white rounded-3 border">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="badge bg-success rounded-pill px-2 py-1">Step 2</span>
+                            <strong class="text-dark small">Issue Official Receipt Voucher</strong>
                         </div>
-
-                        <div class="mb-3">
-                            <label for="momoPhone" class="form-label small fw-semibold text-secondary">Mobile Money Number</label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-light"><i class="bi bi-phone"></i></span>
-                                <input type="text" class="form-control" id="momoPhone" value="<?= htmlspecialchars($user['phone'] ?: '0241112233') ?>" placeholder="e.g. 024XXXXXXX">
-                            </div>
-                            <small class="text-muted" style="font-size: 0.75rem;">Simulated prompt will trigger authorization.</small>
-                        </div>
-
-                        <button type="button" class="btn btn-warning w-100 fw-bold py-2 shadow-sm" id="btnPayMomo" onclick="executeSandboxPayment('momo')">
-                            <i class="bi bi-lock-fill me-1"></i> Authorize <?= $currency ?> <?= number_format($ticket['billing_amount'], 2) ?> via MoMo
-                        </button>
-                    </div>
-
-                    <!-- Tab 3: Test Card -->
-                    <div class="tab-pane fade" id="cardPane" role="tabpanel">
-                        <div class="mb-3">
-                            <label class="form-label small fw-semibold text-secondary">Card Number (Sandbox Test Card)</label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-light"><i class="bi bi-credit-card-2-front"></i></span>
-                                <input type="text" class="form-control font-monospace" id="cardNum" value="4084 0840 8408 4084" readonly>
-                            </div>
-                        </div>
-
-                        <div class="row g-2 mb-3">
-                            <div class="col-6">
-                                <label class="form-label small fw-semibold text-secondary">Expiry</label>
-                                <input type="text" class="form-control font-monospace" value="12 / 30" readonly>
-                            </div>
-                            <div class="col-6">
-                                <label class="form-label small fw-semibold text-secondary">CVV</label>
-                                <input type="text" class="form-control font-monospace" value="408" readonly>
-                            </div>
-                        </div>
-
-                        <button type="button" class="btn btn-primary w-100 fw-bold py-2 shadow-sm" id="btnPayCard" onclick="executeSandboxPayment('card')">
-                            <i class="bi bi-lock-fill me-1"></i> Pay <?= $currency ?> <?= number_format($ticket['billing_amount'], 2) ?> with Test Card
+                        <p class="text-muted small mb-3" style="font-size: 0.8rem;">
+                            After completing your transaction on the Paystack page, click below to confirm your payment in CampusFix and generate your printable receipt:
+                        </p>
+                        <button type="button" class="btn btn-success w-100 fw-bold py-2 shadow-sm d-flex align-items-center justify-content-center gap-2" id="btnConfirmPaystack" onclick="executeSandboxPayment('paystack')">
+                            <i class="bi bi-check2-circle fs-5"></i> I Have Paid — Confirm & View Receipt
                         </button>
                     </div>
                 </div>
@@ -704,8 +619,8 @@ $currentStep = $steps[$ticket['status']] ?? 1;
                     <div class="spinner-border text-primary mb-3" style="width: 3.5rem; height: 3.5rem;" role="status">
                         <span class="visually-hidden">Loading...</span>
                     </div>
-                    <h5 class="fw-bold text-dark mb-1" id="procTitle">Contacting Paystack Gateway...</h5>
-                    <p class="text-secondary small mb-0" id="procSubtitle">Simulating carrier USSD prompt and token approval...</p>
+                    <h5 class="fw-bold text-dark mb-1" id="procTitle">Verifying Paystack Surcharge...</h5>
+                    <p class="text-secondary small mb-0" id="procSubtitle">Validating Paystack transaction & issuing official voucher...</p>
                 </div>
 
                 <!-- Success Screen Overlay (Hidden initially) -->
@@ -723,7 +638,7 @@ $currentStep = $steps[$ticket['status']] ?? 1;
 
             <div class="modal-footer bg-light py-2">
                 <small class="text-muted w-100 text-center" style="font-size: 0.75rem;">
-                    <i class="bi bi-shield-lock-fill text-success me-1"></i> Powered by CampusFix Financial Services &bull; 256-bit SSL Encrypted Sandbox
+                    <i class="bi bi-shield-lock-fill text-success me-1"></i> Secured exclusively by Paystack &bull; Official CampusFix Gateway
                 </small>
             </div>
         </div>
@@ -733,18 +648,10 @@ $currentStep = $steps[$ticket['status']] ?? 1;
 <script>
 async function executeSandboxPayment(type) {
     const ticketId = <?= $ticketId ?>;
-    let channel;
-    if (type === 'paystack_live') {
-        channel = 'Paystack Online (paystack.shop)';
-    } else if (type === 'momo') {
-        channel = document.querySelector('input[name="momo_network"]:checked')?.value || 'MTN MoMo';
-    } else {
-        channel = 'Visa/Mastercard';
-    }
+    const channel = 'Paystack Online';
 
     // Show Processing State
-    document.getElementById('paymentMethodTabs').classList.add('d-none');
-    document.getElementById('paymentMethodContent').classList.add('d-none');
+    document.getElementById('paymentActionsContainer').classList.add('d-none');
     document.getElementById('paymentProcessingScreen').classList.remove('d-none');
 
     try {
@@ -765,18 +672,12 @@ async function executeSandboxPayment(type) {
 
         const paymentRef = initData.data.reference;
 
-        // Step 2: Show confirmation status
-        if (type === 'paystack_live') {
-            document.getElementById('procTitle').innerText = 'Verifying Paystack Surcharge...';
-            document.getElementById('procSubtitle').innerText = 'Validating Paystack transaction & issuing official voucher...';
-        } else {
-            document.getElementById('procTitle').innerText = 'Simulating ' + channel + ' Authorization...';
-            document.getElementById('procSubtitle').innerText = 'Authorizing reference ' + paymentRef + '...';
-        }
+        document.getElementById('procTitle').innerText = 'Verifying Paystack Surcharge...';
+        document.getElementById('procSubtitle').innerText = 'Validating reference ' + paymentRef + ' & issuing official voucher...';
 
         await new Promise(r => setTimeout(r, 1200));
 
-        // Step 3: Verify transaction
+        // Step 2: Verify transaction
         const verifyResp = await fetch('<?= BASE_URL ?>api/payment.php', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -786,6 +687,30 @@ async function executeSandboxPayment(type) {
                 channel: channel
             })
         });
+
+        const verifyData = await verifyResp.json();
+        if (!verifyData.success) {
+            throw new Error(verifyData.message || 'Payment verification failed');
+        }
+
+        // Step 3: Show Success State
+        document.getElementById('paymentProcessingScreen').classList.add('d-none');
+        document.getElementById('paymentSuccessScreen').classList.remove('d-none');
+        document.getElementById('procReceiptText').innerText = 'Receipt #' + verifyData.receipt_number + ' has been registered.';
+        document.getElementById('procReceiptBtn').href = verifyData.receipt_url;
+
+        // Redirect to receipt after 1.5 seconds
+        setTimeout(() => {
+            window.location.href = verifyData.receipt_url;
+        }, 1500);
+
+    } catch (err) {
+        alert('Payment Error: ' + err.message);
+        document.getElementById('paymentProcessingScreen').classList.add('d-none');
+        document.getElementById('paymentActionsContainer').classList.remove('d-none');
+    }
+}
+</script>
 
         const verifyData = await verifyResp.json();
         if (!verifyData.success) {

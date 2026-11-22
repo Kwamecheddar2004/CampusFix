@@ -293,7 +293,7 @@ include_once INCLUDES_PATH . 'sidebar.php';
                         <h6 class="fw-bold text-dark mb-0">
                             <i class="bi bi-wallet2 text-primary me-1"></i> Maintenance Surcharge
                         </h6>
-                        <span class="badge bg-primary-subtle text-primary border border-primary small">Paystack Sandbox</span>
+                        <span class="badge bg-primary-subtle text-primary border border-primary small">Paystack</span>
                     </div>
 
                     <?php if (!empty($ticket['payment_status']) && $ticket['payment_status'] === 'paid'): ?>

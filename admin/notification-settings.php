@@ -220,18 +220,16 @@ include_once INCLUDES_PATH . 'sidebar.php';
                             </div>
                         </div>
 
-                        <!-- Payment Gateway & Surcharge Sandbox Section -->
+                        <!-- Payment Gateway & Surcharge Section -->
                         <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">
-                            <i class="bi bi-credit-card-2-front text-primary me-1"></i> Paystack Payment Gateway & Sandbox
+                            <i class="bi bi-credit-card-2-front text-primary me-1"></i> Paystack Payment Gateway & Storefront
                         </h6>
 
                         <div class="row g-3 mb-3">
                             <div class="col-sm-6">
                                 <label class="form-label small fw-semibold text-secondary">Gateway Provider</label>
-                                <select name="payment_gateway" class="form-select">
-                                    <option value="paystack" selected>Paystack (Mobile Money & Card Sandbox)</option>
-                                    <option value="flutterwave">Flutterwave Sandbox</option>
-                                </select>
+                                <input type="text" class="form-control" value="Paystack (Official Gateway)" readonly>
+                                <input type="hidden" name="payment_gateway" value="paystack">
                             </div>
                             <div class="col-sm-3">
                                 <label class="form-label small fw-semibold text-secondary">Currency Symbol</label>
