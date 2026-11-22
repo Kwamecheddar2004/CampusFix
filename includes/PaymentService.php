@@ -46,11 +46,69 @@ class PaymentService
     }
 
     /**
+     * Self-healing schema check: Ensures payments table and ticket columns exist
+     */
+    public static function ensureSchema(PDO $pdo): void
+    {
+        static $checked = false;
+        if ($checked) return;
+
+        try {
+            // Check if payments table exists
+            $tableCheck = $pdo->query("SHOW TABLES LIKE 'payments'")->fetch();
+            if (!$tableCheck) {
+                $pdo->exec("
+                    CREATE TABLE IF NOT EXISTS `payments` (
+                      `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                      `payment_reference` VARCHAR(60) NOT NULL COMMENT 'Unique payment ref e.g. CF-PAY-2026-0001',
+                      `receipt_number` VARCHAR(60) NOT NULL COMMENT 'Official printable receipt number e.g. RCP-2026-0001',
+                      `ticket_id` INT UNSIGNED NOT NULL,
+                      `user_id` INT UNSIGNED NOT NULL COMMENT 'Student/Reporter payer',
+                      `amount` DECIMAL(10,2) NOT NULL,
+                      `currency` VARCHAR(10) NOT NULL DEFAULT 'GHS',
+                      `gateway` VARCHAR(40) NOT NULL DEFAULT 'paystack_sandbox' COMMENT 'paystack_sandbox, momo_mock, manual_receipt',
+                      `payment_method` VARCHAR(30) NOT NULL DEFAULT 'mobile_money' COMMENT 'mobile_money, card, bank_transfer',
+                      `payment_channel` VARCHAR(50) DEFAULT NULL COMMENT 'MTN MoMo, Telecel Cash, AT Money, Visa, Mastercard',
+                      `payer_phone` VARCHAR(30) DEFAULT NULL,
+                      `payer_email` VARCHAR(100) DEFAULT NULL,
+                      `status` ENUM('pending', 'success', 'failed', 'refunded') NOT NULL DEFAULT 'pending',
+                      `gateway_response` TEXT DEFAULT NULL COMMENT 'Raw gateway verification payload or mock transaction ID',
+                      `paid_at` DATETIME DEFAULT NULL,
+                      `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                      `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                      PRIMARY KEY (`id`),
+                      UNIQUE KEY `uk_payments_reference` (`payment_reference`),
+                      UNIQUE KEY `uk_payments_receipt` (`receipt_number`),
+                      KEY `idx_payments_ticket` (`ticket_id`),
+                      KEY `idx_payments_user` (`user_id`),
+                      KEY `idx_payments_status` (`status`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Payment transaction records and receipts';
+                ");
+            }
+
+            // Check if billing columns exist on tickets
+            $colCheck = $pdo->query("SHOW COLUMNS FROM `tickets` LIKE 'billing_amount'")->fetch();
+            if (!$colCheck) {
+                $pdo->exec("
+                    ALTER TABLE `tickets`
+                      ADD COLUMN `billing_amount` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'Repair/Material surcharge if billable' AFTER `closed_at`,
+                      ADD COLUMN `billing_description` VARCHAR(255) DEFAULT NULL COMMENT 'Reason for surcharge (e.g. Replacement Lamp/Cable)' AFTER `billing_amount`,
+                      ADD COLUMN `payment_status` ENUM('not_required', 'pending', 'paid', 'waived') NOT NULL DEFAULT 'not_required' AFTER `billing_description`;
+                ");
+            }
+            $checked = true;
+        } catch (Throwable $e) {
+            error_log("PaymentService schema verification: " . $e->getMessage());
+        }
+    }
+
+    /**
      * Attach a billable maintenance surcharge to a ticket (Admin / Tech)
      */
     public static function attachSurcharge(int $ticketId, float $amount, string $description, int $actorId): bool
     {
         $pdo = get_db_connection();
+        self::ensureSchema($pdo);
         $stmt = $pdo->prepare("
             UPDATE tickets 
             SET billing_amount = ?, billing_description = ?, payment_status = 'pending', updated_at = NOW()
@@ -125,6 +183,7 @@ class PaymentService
     public static function initializePayment(int $ticketId, int $userId, float $amount, string $email, string $phone, string $channel = 'mobile_money', string $provider = 'paystack_sandbox'): array
     {
         $pdo = get_db_connection();
+        self::ensureSchema($pdo);
 
         // Generate unique payment reference and receipt number
         $uniqueSuffix = strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
@@ -174,6 +233,7 @@ class PaymentService
     public static function verifyPayment(string $reference, array $extraMeta = []): array
     {
         $pdo = get_db_connection();
+        self::ensureSchema($pdo);
 
         // Find payment record
         $stmt = $pdo->prepare("
@@ -331,19 +391,25 @@ class PaymentService
      */
     public static function getPaymentByTicket(int $ticketId): ?array
     {
-        $pdo = get_db_connection();
-        $stmt = $pdo->prepare("
-            SELECT p.*, u.full_name as payer_name, u.email as payer_email, t.ticket_number, t.title as ticket_title 
-            FROM payments p
-            JOIN users u ON p.user_id = u.id
-            JOIN tickets t ON p.ticket_id = t.id
-            WHERE p.ticket_id = ?
-            ORDER BY p.id DESC 
-            LIMIT 1
-        ");
-        $stmt->execute([$ticketId]);
-        $row = $stmt->fetch();
-        return $row ?: null;
+        try {
+            $pdo = get_db_connection();
+            self::ensureSchema($pdo);
+            $stmt = $pdo->prepare("
+                SELECT p.*, u.full_name as payer_name, u.email as payer_email, t.ticket_number, t.title as ticket_title 
+                FROM payments p
+                JOIN users u ON p.user_id = u.id
+                JOIN tickets t ON p.ticket_id = t.id
+                WHERE p.ticket_id = ?
+                ORDER BY p.id DESC 
+                LIMIT 1
+            ");
+            $stmt->execute([$ticketId]);
+            $row = $stmt->fetch();
+            return $row ?: null;
+        } catch (Throwable $e) {
+            error_log("PaymentService getPaymentByTicket notice: " . $e->getMessage());
+            return null;
+        }
     }
 
     /**
@@ -351,22 +417,28 @@ class PaymentService
      */
     public static function getPaymentByReceipt(string $receiptNumber): ?array
     {
-        $pdo = get_db_connection();
-        $stmt = $pdo->prepare("
-            SELECT p.*, u.full_name as payer_name, u.email as payer_email, u.user_code as student_id,
-                   t.ticket_number, t.title as ticket_title, t.billing_description,
-                   c.name as category_name, l.building_name, l.room_name
-            FROM payments p
-            JOIN users u ON p.user_id = u.id
-            JOIN tickets t ON p.ticket_id = t.id
-            LEFT JOIN categories c ON t.category_id = c.id
-            LEFT JOIN campus_locations l ON t.location_id = l.id
-            WHERE p.receipt_number = ?
-            LIMIT 1
-        ");
-        $stmt->execute([$receiptNumber]);
-        $row = $stmt->fetch();
-        return $row ?: null;
+        try {
+            $pdo = get_db_connection();
+            self::ensureSchema($pdo);
+            $stmt = $pdo->prepare("
+                SELECT p.*, u.full_name as payer_name, u.email as payer_email, u.user_code as student_id,
+                       t.ticket_number, t.title as ticket_title, t.billing_description,
+                       c.name as category_name, l.building_name, l.room_name
+                FROM payments p
+                JOIN users u ON p.user_id = u.id
+                JOIN tickets t ON p.ticket_id = t.id
+                LEFT JOIN categories c ON t.category_id = c.id
+                LEFT JOIN campus_locations l ON t.location_id = l.id
+                WHERE p.receipt_number = ?
+                LIMIT 1
+            ");
+            $stmt->execute([$receiptNumber]);
+            $row = $stmt->fetch();
+            return $row ?: null;
+        } catch (Throwable $e) {
+            error_log("PaymentService getPaymentByReceipt notice: " . $e->getMessage());
+            return null;
+        }
     }
 
     /**
@@ -374,17 +446,23 @@ class PaymentService
      */
     public static function getRecentPayments(int $limit = 30): array
     {
-        $pdo = get_db_connection();
-        $stmt = $pdo->prepare("
-            SELECT p.*, u.full_name as payer_name, t.ticket_number, t.title as ticket_title 
-            FROM payments p
-            JOIN users u ON p.user_id = u.id
-            JOIN tickets t ON p.ticket_id = t.id
-            ORDER BY p.id DESC 
-            LIMIT ?
-        ");
-        $stmt->bindValue(1, $limit, PDO::PARAM_INT);
-        $stmt->execute();
-        return $stmt->fetchAll();
+        try {
+            $pdo = get_db_connection();
+            self::ensureSchema($pdo);
+            $stmt = $pdo->prepare("
+                SELECT p.*, u.full_name as payer_name, t.ticket_number, t.title as ticket_title 
+                FROM payments p
+                JOIN users u ON p.user_id = u.id
+                JOIN tickets t ON p.ticket_id = t.id
+                ORDER BY p.id DESC 
+                LIMIT ?
+            ");
+            $stmt->bindValue(1, $limit, PDO::PARAM_INT);
+            $stmt->execute();
+            return $stmt->fetchAll() ?: [];
+        } catch (Throwable $e) {
+            error_log("PaymentService getRecentPayments notice: " . $e->getMessage());
+            return [];
+        }
     }
 }

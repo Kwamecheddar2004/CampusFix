@@ -3,8 +3,6 @@
 -- Adds billing attributes to tickets, creates payments table, and registers settings
 -- ==============================================================================
 
-USE `campusfix`;
-
 -- 1. Add Billing Columns to Tickets Table
 ALTER TABLE `tickets`
   ADD COLUMN `billing_amount` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'Repair/Material surcharge if billable' AFTER `closed_at`,
