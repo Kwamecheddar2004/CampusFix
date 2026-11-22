@@ -96,6 +96,28 @@ class PaymentService
                       ADD COLUMN `payment_status` ENUM('not_required', 'pending', 'paid', 'waived') NOT NULL DEFAULT 'not_required' AFTER `billing_description`;
                 ");
             }
+
+            // Ensure Carpenter Technician exists in users table
+            $techCheck = $pdo->query("SELECT id FROM users WHERE email = 'kofi.carpenter@campusfix.edu'")->fetch();
+            if (!$techCheck) {
+                $hash = '$2y$10$F2CKsIm8k5.VhR8d7blQ.ufNotKZtmCayjGSGH3HMdQd.Sk.FlMiq'; // Tech@123
+                $pdo->prepare("
+                    INSERT INTO users (user_code, full_name, email, phone, password_hash, role, department, status, avatar, created_at)
+                    VALUES ('TECH-2026-004', 'Kofi Boateng', 'kofi.carpenter@campusfix.edu', '+233245556677', ?, 'technician', 'Physical Works - Carpentry & Joinery', 'active', 'assets/images/avatars/tech4.png', NOW())
+                ")->execute([$hash]);
+            }
+
+            // Ensure Carpentry Category is updated
+            $pdo->exec("
+                UPDATE categories 
+                SET name = 'Carpentry, Furniture & Woodwork', 
+                    slug = 'carpentry-furniture',
+                    department_in_charge = 'Physical Works - Carpentry',
+                    icon = 'bi-hammer',
+                    color_code = '#854d0e'
+                WHERE id = 8;
+            ");
+
             $checked = true;
         } catch (Throwable $e) {
             error_log("PaymentService schema verification: " . $e->getMessage());

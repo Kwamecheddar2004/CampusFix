@@ -108,6 +108,31 @@ try {
         echo "Sample payment seeded!\n";
     }
 
+    // 5. Check if Carpenter Technician exists
+    $carpCheck = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+    $carpCheck->execute(['kofi.carpenter@campusfix.edu']);
+    if (!$carpCheck->fetch()) {
+        echo "Adding Carpenter Technician (Kofi Boateng)...\n";
+        $hash = '$2y$10$F2CKsIm8k5.VhR8d7blQ.ufNotKZtmCayjGSGH3HMdQd.Sk.FlMiq'; // Tech@123
+        $pdo->prepare("
+            INSERT INTO users (user_code, full_name, email, phone, password_hash, role, department, status, avatar, created_at)
+            VALUES ('TECH-2026-004', 'Kofi Boateng', 'kofi.carpenter@campusfix.edu', '+233245556677', ?, 'technician', 'Physical Works - Carpentry & Joinery', 'active', 'assets/images/avatars/tech4.png', NOW())
+        ")->execute([$hash]);
+        echo "Carpenter Technician added!\n";
+    }
+
+    // 6. Ensure Category for Carpentry & Woodwork is updated
+    $pdo->exec("
+        UPDATE categories 
+        SET name = 'Carpentry, Furniture & Woodwork', 
+            slug = 'carpentry-furniture',
+            department_in_charge = 'Physical Works - Carpentry',
+            icon = 'bi-hammer',
+            color_code = '#854d0e'
+        WHERE id = 8;
+    ");
+    echo "Carpentry category updated!\n";
+
     echo "\n=== MIGRATION COMPLETED SUCCESSFULLY ===\n";
 
 } catch (Exception $e) {

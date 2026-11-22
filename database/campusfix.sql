@@ -322,10 +322,11 @@ SET FOREIGN_KEY_CHECKS = 1;
 INSERT INTO `users` (`id`, `user_code`, `full_name`, `email`, `phone`, `password_hash`, `role`, `department`, `status`, `avatar`) VALUES
 -- 1 Administrator
 (1, 'ADM-2026-001', 'Admin Kwame Mensah', 'admin@campusfix.edu', '+233201112233', '$2y$10$T.RYWzm2aUuutzO/JjD9Veivv3ASMpDAibqTtG0OwcF8vS2ufnUFm', 'admin', 'IT & Estate Management', 'active', 'assets/images/avatars/admin.png'),
--- 3 Technicians
+-- 4 Technicians (IT, Electrical, Plumbing, Carpentry)
 (2, 'TECH-2026-001', 'Samuel Osei', 'samuel.it@campusfix.edu', '+233242223344', '$2y$10$F2CKsIm8k5.VhR8d7blQ.ufNotKZtmCayjGSGH3HMdQd.Sk.FlMiq', 'technician', 'IT Directorate & Networking', 'active', 'assets/images/avatars/tech1.png'),
 (3, 'TECH-2026-002', 'Akua Mensah-Bonsu', 'akua.electric@campusfix.edu', '+233243334455', '$2y$10$F2CKsIm8k5.VhR8d7blQ.ufNotKZtmCayjGSGH3HMdQd.Sk.FlMiq', 'technician', 'Physical Works - Electrical', 'active', 'assets/images/avatars/tech2.png'),
 (4, 'TECH-2026-003', 'David Appiah', 'david.plumber@campusfix.edu', '+233244445566', '$2y$10$F2CKsIm8k5.VhR8d7blQ.ufNotKZtmCayjGSGH3HMdQd.Sk.FlMiq', 'technician', 'Physical Works - Plumbing', 'active', 'assets/images/avatars/tech3.png'),
+(8, 'TECH-2026-004', 'Kofi Boateng', 'kofi.carpenter@campusfix.edu', '+233245556677', '$2y$10$F2CKsIm8k5.VhR8d7blQ.ufNotKZtmCayjGSGH3HMdQd.Sk.FlMiq', 'technician', 'Physical Works - Carpentry & Joinery', 'active', 'assets/images/avatars/tech4.png'),
 -- 3 Students / Reporters
 (5, 'STU-2026-101', 'Emmanuel Frimpong', 'emmanuel.stu@campusfix.edu', '+233265556677', '$2y$10$o5kJqtRddkTyvJ.Po9Dey.r0sj2dwuO5HthPuQ1Wne5u/sK6p/D.6', 'student', 'Computer Science Dept', 'active', 'assets/images/avatars/stu1.png'),
 (6, 'STU-2026-102', 'Grace Ansah', 'grace.stu@campusfix.edu', '+233266667788', '$2y$10$o5kJqtRddkTyvJ.Po9Dey.r0sj2dwuO5HthPuQ1Wne5u/sK6p/D.6', 'student', 'Electrical Engineering', 'active', 'assets/images/avatars/stu2.png'),
@@ -342,7 +343,7 @@ INSERT INTO `categories` (`id`, `name`, `slug`, `description`, `department_in_ch
 (5, 'Electrical & Power Outlets', 'electrical-power', 'Sparks from sockets, tripping breakers, dead wall outlets, dangerous wiring', 'Physical Works - Electrical', 'bi-lightning-charge', '#dc3545', 1),
 (6, 'Lighting & Ceiling Fixtures', 'lighting-fixtures', 'Flickering fluorescent tubes, broken switches, dark corridors, stadium lights', 'Physical Works - Electrical', 'bi-lightbulb', '#ffc107', 1),
 (7, 'Plumbing, Washrooms & Water', 'plumbing-water', 'Burst pipes, running toilets, clogged sinks, water shortage, leaking valves', 'Physical Works - Plumbing', 'bi-droplet', '#0dcaf0', 1),
-(8, 'Classroom Furniture & Structural', 'furniture-structural', 'Broken lecture seats, cracked whiteboards, stuck door locks, broken windows', 'Estate & Maintenance', 'bi-door-closed', '#6c757d', 1);
+(8, 'Carpentry, Furniture & Woodwork', 'carpentry-furniture', 'Broken lecture seats, damaged desks, loose door locks, stuck windows, cabinet repairs', 'Physical Works - Carpentry', 'bi-hammer', '#854d0e', 1);
 
 -- ------------------------------------------------------------------------------
 -- Seed Campus Locations
@@ -377,7 +378,10 @@ INSERT INTO `tickets` (`id`, `ticket_number`, `reporter_id`, `category_id`, `loc
 (5, 'CF-2026-0005', 6, 6, 5, 'Overhead row 2 above soldering benches', 'Fluorescent tubes buzzing loudly and strobing uncontrollably', 'The ballast was replaced last week but the light started strobing and buzzing again today during lab experiment.', 'low', 'medium', 'reopened', 3, '2026-11-19 14:00:00', NULL, NULL, 'Previous technician replaced starter only. Ballast transformer is vibrating and needs full replacement unit.', NULL, NULL, 0.00, NULL, 'not_required', '2026-11-12 16:20:00'),
 
 -- Ticket 6: Closed (Paid Surcharge with Verified Paystack Sandbox Receipt)
-(6, 'CF-2026-0006', 7, 4, 4, 'Next to librarian front desk', 'HP LaserJet M605 paper feed roller slipping and jamming', 'Printer displays Error 13.00.00 Paper Jam. Paper tray 2 feed roller is worn out and fails to pick sheets.', 'medium', 'medium', 'closed', 2, '2026-11-10 13:00:00', '2026-11-11 11:30:00', '2026-11-12 09:00:00', 'Replaced pickup roller and separation pad (Part #RM2-6303). Cleaned paper path sensors. Successfully test printed 100 duplex pages.', 4, 'Fixed on time. Thank you.', 75.00, 'Replacement HP LaserJet Pickup Roller & Separation Pad (Part #RM2-6303)', 'paid', '2026-11-10 11:15:00');
+(6, 'CF-2026-0006', 7, 4, 4, 'Next to librarian front desk', 'HP LaserJet M605 paper feed roller slipping and jamming', 'Printer displays Error 13.00.00 Paper Jam. Paper tray 2 feed roller is worn out and fails to pick sheets.', 'medium', 'medium', 'closed', 2, '2026-11-10 13:00:00', '2026-11-11 11:30:00', '2026-11-12 09:00:00', 'Replaced pickup roller and separation pad (Part #RM2-6303). Cleaned paper path sensors. Successfully test printed 100 duplex pages.', 4, 'Fixed on time. Thank you.', 75.00, 'Replacement HP LaserJet Pickup Roller & Separation Pad (Part #RM2-6303)', 'paid', '2026-11-10 11:15:00'),
+
+-- Ticket 7: Assigned (Carpentry Job Assigned to Kofi Boateng)
+(7, 'CF-2026-0007', 5, 8, 2, 'Row 4, seat 12 near center aisle', 'Fractured lecture hall wooden desk and loose hinge', 'The wooden fold-up writing tablet is cracked along the grain and the spring hinge is loose.', 'medium', 'medium', 'assigned', 8, '2026-11-21 09:00:00', NULL, NULL, NULL, NULL, NULL, 35.00, 'Seasoned mahogany tablet replacement & heavy-duty hinge fastener', 'pending', '2026-11-21 08:30:00');
 
 -- ------------------------------------------------------------------------------
 -- Seed Ticket Assignments
@@ -387,7 +391,8 @@ INSERT INTO `ticket_assignments` (`id`, `ticket_id`, `technician_id`, `assigned_
 (2, 2, 2, 1, '2026-11-18 10:00:00', NULL, 'active', 'Inspect air intake filter and replace projector lamp if runtime > 3000 hours.'),
 (3, 3, 3, 1, '2026-11-20 11:30:00', NULL, 'active', 'CRITICAL SAFETY: Isolate breaker immediately before opening socket plate!'),
 (4, 5, 3, 1, '2026-11-19 14:00:00', NULL, 'active', 'Reopened report. Replace full electronic ballast fixture rather than starter.'),
-(5, 6, 2, 1, '2026-11-10 13:00:00', '2026-11-11 11:30:00', 'completed', 'Collect replacement roller kit from ICT stores.');
+(5, 6, 2, 1, '2026-11-10 13:00:00', '2026-11-11 11:30:00', 'completed', 'Collect replacement roller kit from ICT stores.'),
+(6, 7, 8, 1, '2026-11-21 09:00:00', NULL, 'active', 'Inspect auditorium row 4 writing tablet and secure with heavy-duty fasteners.');
 
 -- ------------------------------------------------------------------------------
 -- Seed Ticket Status History (Audit trail of transitions)
